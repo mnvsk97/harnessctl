@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { RUNS_DIR, ensureInit } from "./config.js";
-import type { RunResult } from "./adapters/types.js";
+import { RUNS_DIR, ensureInit } from "./config.ts";
+import type { RunResult } from "./adapters/types.ts";
 
 export interface RunLog {
   agent: string;

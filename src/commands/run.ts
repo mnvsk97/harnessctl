@@ -1,9 +1,9 @@
-import { loadConfig, loadAgentConfig, resolveEnv } from "../config.js";
-import { getAdapter } from "../adapters/registry.js";
-import { invoke } from "../invoke.js";
-import { saveSession, loadSession, loadLastSession } from "../session.js";
-import { writeRunLog } from "../log.js";
-import type { InvokeIntent } from "../adapters/types.js";
+import { loadConfig, loadAgentConfig, resolveEnv } from "../config.ts";
+import { getAdapter } from "../adapters/registry.ts";
+import { invoke } from "../invoke.ts";
+import { saveSession, loadSession, loadLastSession } from "../session.ts";
+import { writeRunLog } from "../log.ts";
+import type { InvokeIntent } from "../adapters/types.ts";
 
 export interface RunOptions {
   agent?: string;

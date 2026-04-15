@@ -27,10 +27,48 @@ Every coding agent ships its own CLI with different flags, output formats, and s
 
 ## Install
 
+### npm
+
+```bash
+npm install -g harnessctl
+```
+
+Works with Bun (any version) or Node.js >= 22.
+
+### Homebrew
+
+```bash
+brew install mnvsk97/tap/harnessctl
+```
+
+<details>
+<summary><strong>Shell script (Linux / macOS)</strong></summary>
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mnvsk97/harnessctl/main/install/install.sh | bash
+```
+
+Downloads the latest compiled binary to `/usr/local/bin`. Set `HARNESSCTL_INSTALL_DIR` to change the location.
+
+</details>
+
+<details>
+<summary><strong>PowerShell (Windows)</strong></summary>
+
+```powershell
+irm https://raw.githubusercontent.com/mnvsk97/harnessctl/main/install/install.ps1 | iex
+```
+
+Downloads the latest binary to `~\.harnessctl\bin` and adds it to your PATH.
+
+</details>
+
+<details>
+<summary><strong>From source</strong></summary>
+
 Requires [Bun](https://bun.sh).
 
 ```bash
-# From source
 git clone https://github.com/mnvsk97/harnessctl.git
 cd harnessctl
 bun install
@@ -42,6 +80,8 @@ bun run src/cli.ts run "hello"
 bun build --compile src/cli.ts --outfile harnessctl
 ./harnessctl run "hello"
 ```
+
+</details>
 
 ## Usage
 

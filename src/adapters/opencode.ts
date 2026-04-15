@@ -1,4 +1,4 @@
-import type { Adapter, RunResult } from "./types.js";
+import type { Adapter, RunResult } from "./types.ts";
 
 export const opencodeAdapter: Adapter = {
   name: "opencode",

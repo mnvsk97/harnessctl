@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import YAML from "yaml";
-import type { AgentConfig } from "./adapters/types.js";
+import type { AgentConfig } from "./adapters/types.ts";
 
 const HOME = homedir();
 export const HARNESS_DIR = join(HOME, ".harnessctl");

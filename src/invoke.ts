@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import type { Adapter, AgentConfig, InvokeIntent, RunResult } from "./adapters/types.js";
-import { buildCommand } from "./adapters/registry.js";
+import type { Adapter, AgentConfig, InvokeIntent, RunResult } from "./adapters/types.ts";
+import { buildCommand } from "./adapters/registry.ts";
 
 export function invoke(
   adapter: Adapter,

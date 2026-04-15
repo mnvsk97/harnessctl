@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
-import { ensureInit } from "./config.js";
-import { runCommand } from "./commands/run.js";
-import { listCommand } from "./commands/list.js";
-import { doctorCommand } from "./commands/doctor.js";
-import { configCommand } from "./commands/config.js";
+import { ensureInit } from "./config.ts";
+import { runCommand } from "./commands/run.ts";
+import { listCommand } from "./commands/list.ts";
+import { doctorCommand } from "./commands/doctor.ts";
+import { configCommand } from "./commands/config.ts";
 
 const USAGE = `harnessctl — universal coding agent CLI
 

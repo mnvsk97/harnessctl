@@ -1,11 +1,45 @@
 {
   "name": "harnessctl",
   "version": "0.1.0",
+  "description": "Universal CLI wrapper for coding agents",
   "type": "module",
   "module": "src/cli.ts",
+  "main": "src/cli.ts",
+  "bin": {
+    "harnessctl": "./bin/cli.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "bun run src/cli.ts",
-    "build": "bun build --compile src/cli.ts --outfile harnessctl"
+    "build": "bun build --compile src/cli.ts --outfile harnessctl",
+    "prepublishOnly": "node -e \"require('fs').mkdirSync('bin',{recursive:true})\""
+  },
+  "keywords": [
+    "cli",
+    "coding-agent",
+    "claude",
+    "codex",
+    "opencode",
+    "ai",
+    "developer-tools"
+  ],
+  "author": "mnvsk97",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mnvsk97/harnessctl.git"
+  },
+  "homepage": "https://github.com/mnvsk97/harnessctl",
+  "bugs": {
+    "url": "https://github.com/mnvsk97/harnessctl/issues"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "yaml": "^2.7.1"

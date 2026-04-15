@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { SESSIONS_DIR } from "./config.js";
+import { SESSIONS_DIR } from "./config.ts";
 
 export interface SessionData {
   agent: string;

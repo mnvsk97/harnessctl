@@ -1,4 +1,4 @@
-import { loadConfig, saveConfig } from "../config.js";
+import { loadConfig, saveConfig } from "../config.ts";
 
 export function configCommand(args: string[]): void {
   if (args.length === 0) {

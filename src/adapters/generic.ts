@@ -1,4 +1,4 @@
-import type { Adapter, AgentConfig, RunResult } from "./types.js";
+import type { Adapter, AgentConfig, RunResult } from "./types.ts";
 
 export function createGenericAdapter(name: string, config: AgentConfig): Adapter {
   const command = config.command ?? name;

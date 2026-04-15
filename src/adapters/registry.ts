@@ -1,8 +1,8 @@
-import type { Adapter, AgentConfig, InvokeIntent } from "./types.js";
-import { claudeAdapter } from "./claude.js";
-import { codexAdapter } from "./codex.js";
-import { opencodeAdapter } from "./opencode.js";
-import { createGenericAdapter } from "./generic.js";
+import type { Adapter, AgentConfig, InvokeIntent } from "./types.ts";
+import { claudeAdapter } from "./claude.ts";
+import { codexAdapter } from "./codex.ts";
+import { opencodeAdapter } from "./opencode.ts";
+import { createGenericAdapter } from "./generic.ts";
 
 const builtinAdapters: Record<string, Adapter> = {
   claude: claudeAdapter,

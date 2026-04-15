@@ -1,8 +1,8 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { spawnSync } from "node:child_process";
-import { AGENTS_DIR, loadAgentConfig, loadConfig } from "../config.js";
-import { getAdapter, listAdapterNames } from "../adapters/registry.js";
+import { AGENTS_DIR, loadAgentConfig, loadConfig } from "../config.ts";
+import { getAdapter, listAdapterNames } from "../adapters/registry.ts";
 
 export function listCommand(): void {
   const globalConfig = loadConfig();
