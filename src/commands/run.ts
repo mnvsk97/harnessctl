@@ -1,10 +1,9 @@
-import { createInterface } from "node:readline";
 import { loadConfig, loadAgentConfig, resolveEnv, isKnownAgent } from "../config.ts";
 import { getAdapter, checkAuth, listAdapterNames } from "../adapters/registry.ts";
 import { invoke } from "../invoke.ts";
 import { saveSession, loadSession, loadLastSession } from "../session.ts";
 import { writeRunLog } from "../log.ts";
-import { header, footer, separator, c } from "../ui.ts";
+import { header, footer, separator, rule, c, askConfirm } from "../ui.ts";
 import type { InvokeIntent, AgentConfig } from "../adapters/types.ts";
 
 export interface RunOptions {
@@ -13,34 +12,6 @@ export interface RunOptions {
   prompt: string;
   extraArgs: string[];
   pipedInput?: string;
-}
-
-/** Prompt user with a yes/no question on the terminal. Works cross-platform. */
-function askConfirm(question: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    let input: NodeJS.ReadableStream;
-    if (process.stdin.isTTY) {
-      input = process.stdin;
-    } else {
-      // When stdin is piped, open the controlling terminal directly.
-      // /dev/tty on macOS/Linux, CON on Windows.
-      const ttyPath = process.platform === "win32" ? "CON" : "/dev/tty";
-      try {
-        input = require("node:fs").createReadStream(ttyPath);
-      } catch {
-        // No terminal available (e.g. CI, headless) — decline fallback silently
-        console.error(`\x1b[2m[harnessctl] no terminal available, skipping fallback prompt\x1b[0m`);
-        resolve(false);
-        return;
-      }
-    }
-
-    const rl = createInterface({ input, output: process.stderr });
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer.trim().toLowerCase().startsWith("y"));
-    });
-  });
 }
 
 /** Run a single agent invocation. Returns the exit code. */
@@ -95,7 +66,7 @@ async function invokeAgent(
 
   const cwdShort = cwd.replace(require("node:os").homedir(), "~");
   header(c.bold("harnessctl"), [agentName, auth.message, cwdShort]);
-  separator();
+  rule();
 
   let result = await invoke(adapter, intent, agentConfig);
 
@@ -113,7 +84,7 @@ async function invokeAgent(
   writeRunLog(agentName, opts.prompt, cwd, result);
 
   // Print result footer
-  separator();
+  rule();
   const stats: string[] = [];
   if (result.tokens) stats.push(`tokens: ${result.tokens.input}in/${result.tokens.output}out`);
   if (result.cost != null) stats.push(`cost: $${result.cost.toFixed(4)}`);
