@@ -27,11 +27,30 @@ timeout: 300
 extra_args: []
 ```
 
+Custom agents can also define their own command directly in YAML:
+
+```yaml
+# ~/.harnessctl/agents/myagent.yaml
+cmd: myagent
+args: ["--headless", "--json"]
+model_arg: --model
+resume_arg: --session
+healthcheck:
+  args: ["--version"]
+timeout: 300
+extra_args: []
+```
+
 ### Fields
 
 | Field | Type | Description |
 |---|---|---|
 | `model` | string | Model to use (passed via adapter's argMap) |
+| `cmd` | string | Command to launch for a custom non-built-in agent |
+| `args` | list | Base args always passed to a custom agent |
+| `model_arg` | string | Flag name used to pass `model` to a custom agent |
+| `resume_arg` | string | Flag name used to pass resume/session IDs to a custom agent |
+| `healthcheck` | map | Optional override for install check command/args |
 | `env` | map | Environment variables. `${VAR}` syntax resolves from your shell env |
 | `timeout` | number | Seconds before SIGTERM (default: 300) |
 | `extra_args` | list | Args appended to every invocation of this agent |
@@ -40,6 +59,8 @@ extra_args: []
 
 - **YAML** — user preferences: model, env, timeout, extra args
 - **Adapter code** — invocation mechanics: headless flags, output format, stdin mode
+
+For built-ins (`claude`, `codex`, `opencode`), the adapter still owns invocation mechanics. For custom agents, YAML provides those mechanics through `cmd` and `args`.
 
 You never put `--print` or `--output-format` in YAML. That's the adapter's job.
 

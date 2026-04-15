@@ -248,7 +248,8 @@ jobs:
           # Verify piped input doesn't cause a crash — auth check fails gracefully
           OUTPUT=$(echo "some context" | bun run src/cli.ts run --agent claude "test" 2>&1 || true)
           echo "$OUTPUT"
-          echo "$OUTPUT" | grep "\[harnessctl\]"
+          echo "$OUTPUT" | grep "harnessctl"
+          echo "$OUTPUT" | grep "claude"
 
   # ── Install script syntax check ─────────────────────────
   install-scripts:

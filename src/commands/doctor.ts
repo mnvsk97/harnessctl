@@ -4,6 +4,7 @@ import { getAdapter, checkAuth } from "../adapters/registry.ts";
 import { readFileSync } from "node:fs";
 import { header, footer, separator, c } from "../ui.ts";
 import YAML from "yaml";
+import type { Adapter } from "../adapters/types.ts";
 
 /** Check if user has run `harnessctl setup`. */
 function hasRunSetup(): boolean {
@@ -49,7 +50,14 @@ export function doctorCommand(): void {
 
   for (const name of agents) {
     const config = loadAgentConfig(name);
-    const adapter = getAdapter(name, config);
+    let adapter: Adapter;
+    try {
+      adapter = getAdapter(name, config);
+    } catch (err: any) {
+      console.error(`  ${c.red("✗")} ${c.bold(name)} — ${err.message}`);
+      allOk = false;
+      continue;
+    }
     const health = adapter.healthCheck();
     const role = name === globalConfig.default_agent ? c.dim("default") : c.dim("fallback");
 

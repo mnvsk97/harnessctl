@@ -3,6 +3,7 @@ import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 import { AGENTS_DIR, loadAgentConfig, loadConfig } from "../config.ts";
 import { getAdapter, listAdapterNames } from "../adapters/registry.ts";
+import type { Adapter } from "../adapters/types.ts";
 import { c } from "../ui.ts";
 
 export function listCommand(): void {
@@ -23,7 +24,14 @@ export function listCommand(): void {
 
   for (const name of [...names].sort()) {
     const config = loadAgentConfig(name);
-    const adapter = getAdapter(name, config);
+    let adapter: Adapter;
+    try {
+      adapter = getAdapter(name, config);
+    } catch (err: any) {
+      console.log(`  ${name}  \x1b[31m✗ invalid config\x1b[0m`);
+      console.log(`    ${err.message}`);
+      continue;
+    }
     const health = adapter.healthCheck();
 
     // Check if installed
