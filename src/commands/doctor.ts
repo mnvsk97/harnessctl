@@ -1,40 +1,71 @@
-import { existsSync, readdirSync } from "node:fs";
-import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
-import { AGENTS_DIR, loadAgentConfig, loadConfig } from "../config.ts";
-import { getAdapter, listAdapterNames, checkAuth } from "../adapters/registry.ts";
+import { loadAgentConfig, loadConfig, CONFIG_PATH } from "../config.ts";
+import { getAdapter, checkAuth } from "../adapters/registry.ts";
+import { readFileSync } from "node:fs";
+import YAML from "yaml";
+
+/** Check if user has run `harnessctl setup`. */
+function hasRunSetup(): boolean {
+  try {
+    const raw = readFileSync(CONFIG_PATH, "utf-8");
+    const config = YAML.parse(raw);
+    return config?.setup_done === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Collect the configured agent chain: default agent + fallback agents. */
+function getConfiguredAgents(): string[] {
+  const globalConfig = loadConfig();
+  const agents: string[] = [];
+  const seen = new Set<string>();
+  let current: string | undefined = globalConfig.default_agent;
+
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    agents.push(current);
+    const config = loadAgentConfig(current);
+    current = config.fallback;
+  }
+
+  return agents;
+}
 
 export function doctorCommand(): void {
   const globalConfig = loadConfig();
   console.log("harnessctl doctor\n");
-  console.log(`Config: default_agent=${globalConfig.default_agent}\n`);
 
-  const names = new Set(listAdapterNames());
-  if (existsSync(AGENTS_DIR)) {
-    for (const file of readdirSync(AGENTS_DIR)) {
-      if (file.endsWith(".yaml")) {
-        names.add(basename(file, ".yaml"));
-      }
-    }
+  if (!hasRunSetup()) {
+    console.log("\x1b[33m⚠ Setup not complete.\x1b[0m Run \x1b[1mharnessctl setup\x1b[0m to configure your agents.\n");
   }
 
+  console.log(`Config: default_agent=${globalConfig.default_agent}\n`);
+
+  const agents = getConfiguredAgents();
   let allOk = true;
 
-  for (const name of [...names].sort()) {
+  for (const name of agents) {
     const config = loadAgentConfig(name);
     const adapter = getAdapter(name, config);
     const health = adapter.healthCheck();
+    const role = name === globalConfig.default_agent ? "default" : "fallback";
 
-    process.stdout.write(`  ${name}: `);
+    process.stdout.write(`  ${name} (${role}): `);
     const check = spawnSync(health.cmd, health.args, { timeout: 5000, stdio: "pipe" });
 
     if (check.status === 0) {
       const version = check.stdout?.toString().trim().split("\n")[0] ?? "";
       const auth = checkAuth(adapter);
-      const authIcon = auth.ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m";
       const fallback = config.fallback ? ` | fallback: ${config.fallback}` : "";
-      console.log(`\x1b[32m✓\x1b[0m ${version} | auth: ${authIcon} ${auth.message}${fallback}`);
-      if (!auth.ok) allOk = false;
+
+      if (auth.ok) {
+        console.log(`\x1b[32m✓\x1b[0m ${version} | auth: \x1b[32m✓\x1b[0m ${auth.message}${fallback}`);
+      } else {
+        // Installed but auth failed — yellow warning, not green
+        console.log(`\x1b[33m⚠\x1b[0m ${version} | auth: \x1b[31m✗\x1b[0m ${auth.message}${fallback}`);
+        allOk = false;
+      }
     } else if (check.error) {
       const err = check.error as NodeJS.ErrnoException;
       if (err.code === "ENOENT") {
@@ -53,9 +84,9 @@ export function doctorCommand(): void {
 
   console.log();
   if (allOk) {
-    console.log("All agents healthy.");
+    console.log("All configured agents healthy.");
   } else {
-    console.log("Some agents are missing or unhealthy.");
+    console.log("Some configured agents have issues.");
     console.log("  Install missing agents or run their login commands to fix auth issues.");
   }
 }

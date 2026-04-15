@@ -14,6 +14,7 @@ export const RUNS_DIR = join(HARNESS_DIR, "runs");
 export interface GlobalConfig {
   default_agent: string;
   on_exhaustion?: "handoff" | "end";
+  setup_done?: boolean;
 }
 
 const DEFAULT_CONFIG: GlobalConfig = {

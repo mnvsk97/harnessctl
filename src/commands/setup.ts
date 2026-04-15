@@ -70,6 +70,7 @@ export async function setupCommand(): Promise<void> {
       config.on_exhaustion || "handoff",
     );
     config.on_exhaustion = onExhaustion as "handoff" | "end";
+    config.setup_done = true;
 
     // Save
     saveConfig(config);
