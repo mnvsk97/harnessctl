@@ -3,21 +3,20 @@
   "version": "0.1.0",
   "description": "Universal CLI wrapper for coding agents",
   "type": "module",
-  "module": "src/cli.ts",
-  "main": "src/cli.ts",
+  "main": "dist/cli.js",
   "bin": {
-    "harnessctl": "./bin/cli.mjs"
+    "harnessctl": "./dist/cli.js"
   },
   "files": [
-    "bin/",
-    "src/",
+    "dist/",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "dev": "bun run src/cli.ts",
     "build": "bun build --compile src/cli.ts --outfile harnessctl",
-    "prepublishOnly": "node -e \"require('fs').mkdirSync('bin',{recursive:true})\""
+    "bundle": "bun build src/cli.ts --outdir dist --target node --format esm && node -e \"const f='dist/cli.js';let c=require('fs').readFileSync(f,'utf8');c=c.replace(/^#!.*\\n(\\/\\/ @bun\\n)?/,'#!/usr/bin/env node\\n');require('fs').writeFileSync(f,c)\"",
+    "prepublishOnly": "bun run bundle"
   },
   "keywords": [
     "cli",

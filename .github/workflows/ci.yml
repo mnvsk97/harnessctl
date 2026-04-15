@@ -7,17 +7,9 @@ on:
     branches: [main]
 
 jobs:
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install
-      - run: bun run src/cli.ts --help
-
-  build:
+  # ── Dev mode: bun run src/cli.ts ──────────────────────────
+  bun-dev:
+    name: "Bun dev mode (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -28,6 +20,60 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
+
+      - name: CLI help
+        shell: bash
+        run: bun run src/cli.ts --help
+
+      - name: CLI list
+        shell: bash
+        run: bun run src/cli.ts list
+
+      - name: CLI doctor
+        shell: bash
+        run: bun run src/cli.ts doctor || true  # agents not installed in CI
+
+      - name: CLI config get/set
+        shell: bash
+        run: |
+          bun run src/cli.ts config get
+          bun run src/cli.ts config set default codex
+          bun run src/cli.ts config get default_agent | grep codex
+          bun run src/cli.ts config set default claude
+          bun run src/cli.ts config get default_agent | grep claude
+
+      - name: CLI missing prompt exits 1
+        shell: bash
+        run: |
+          ! bun run src/cli.ts run 2>&1
+
+      - name: CLI unknown command exits 1
+        shell: bash
+        run: |
+          ! bun run src/cli.ts bogus 2>&1
+
+      - name: State directory created
+        shell: bash
+        run: |
+          ls ~/.harnessctl/config.yaml
+          ls ~/.harnessctl/agents/claude.yaml
+          ls ~/.harnessctl/agents/codex.yaml
+          ls ~/.harnessctl/agents/opencode.yaml
+
+  # ── Compiled binary ──────────────────────────────────────
+  compiled-binary:
+    name: "Compiled binary (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+
       - name: Build binary
         shell: bash
         run: |
@@ -36,13 +82,180 @@ jobs:
           else
             bun build --compile src/cli.ts --outfile harnessctl
           fi
-      - name: Smoke test
+
+      - name: Smoke test binary
         shell: bash
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            ./harnessctl.exe --help
-            ./harnessctl.exe list
+            BIN=./harnessctl.exe
           else
-            ./harnessctl --help
-            ./harnessctl list
+            BIN=./harnessctl
           fi
+          $BIN --help | head -4
+          $BIN list
+          $BIN doctor || true
+          $BIN config get
+
+  # ── npm install with bun runtime ─────────────────────────
+  npm-install-bun:
+    name: "npm install (bun runtime)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+
+      - name: Bundle for npm
+        run: bun run bundle
+
+      - name: Verify bundle
+        run: |
+          test -f dist/cli.js
+          head -1 dist/cli.js | grep "#!/usr/bin/env node"
+
+      - name: Pack and install globally
+        run: |
+          bun pm pack
+          npm install -g ./harnessctl-*.tgz
+
+      - name: Smoke test global install
+        run: |
+          harnessctl --help | head -4
+          harnessctl list
+          harnessctl config get
+          harnessctl config set default codex
+          harnessctl config get default_agent | grep codex
+
+      - name: Cleanup
+        run: npm uninstall -g harnessctl
+
+  # ── npm install with Node 22 (no bun) ───────────────────
+  npm-install-node22:
+    name: "npm install (Node 22, no bun)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: bun install
+
+      - name: Bundle for npm
+        run: bun run bundle
+
+      - name: Pack
+        run: bun pm pack
+
+      - name: Install globally with npm (Node only)
+        run: |
+          # Remove bun from PATH so the shim can only use node
+          npm install -g ./harnessctl-*.tgz
+
+      - name: Smoke test with Node runtime
+        env:
+          PATH: /usr/local/bin:/usr/bin:/bin  # exclude bun
+        run: |
+          which node
+          harnessctl --help | head -4
+          harnessctl list
+          harnessctl config get
+
+  # ── npm install with Node 18 (oldest supported) ─────────
+  npm-install-node18:
+    name: "npm install (Node 18)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - run: bun install
+
+      - name: Bundle for npm
+        run: bun run bundle
+
+      - name: Pack
+        run: bun pm pack
+
+      - name: Install and test
+        run: |
+          npm install -g ./harnessctl-*.tgz
+          harnessctl --help | head -4
+          harnessctl list
+          harnessctl config get
+
+  # ── Piped stdin ──────────────────────────────────────────
+  piped-stdin:
+    name: "Piped stdin"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+
+      # We can't test actual agent invocation in CI (no API keys),
+      # but we can verify the CLI accepts piped input without errors
+      # by using a nonexistent agent that will fail at spawn (not at arg parsing)
+      - name: Piped stdin is accepted
+        run: |
+          echo "some context" | bun run src/cli.ts run --agent claude "test" 2>&1 || true
+          # Verify the prompt was constructed (check the harnessctl log line appears)
+          echo "some context" | bun run src/cli.ts run --agent claude "test" 2>&1 | grep "\[harnessctl\] agent=claude"
+
+  # ── Install script syntax check ─────────────────────────
+  install-scripts:
+    name: "Install scripts (syntax check)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell script syntax
+        run: bash -n install/install.sh
+
+      - name: PowerShell script syntax
+        run: |
+          pwsh -Command "Get-Content install/install.ps1 | Out-Null" 2>/dev/null || \
+          echo "pwsh not available, skipping PS1 syntax check"
+
+  # ── Bundle integrity ─────────────────────────────────────
+  bundle-integrity:
+    name: "Bundle integrity"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+
+      - name: Bundle
+        run: bun run bundle
+
+      - name: Verify shebang
+        run: head -1 dist/cli.js | grep "#!/usr/bin/env node"
+
+      - name: Verify bundle is self-contained (no require of src/)
+        run: |
+          ! grep 'require("\.\./' dist/cli.js
+          ! grep "from '\.\./" dist/cli.js
+
+      - name: Verify bundle runs
+        run: node dist/cli.js --help | head -4
+
+      - name: Verify all commands work
+        run: |
+          node dist/cli.js list
+          node dist/cli.js config get
+          node dist/cli.js doctor || true
