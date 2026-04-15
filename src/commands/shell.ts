@@ -81,6 +81,22 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
   if (!auth.ok) {
     console.error(`${c.red("✗")} ${agentName}: ${auth.message}`);
     console.error(c.dim(`  tip: run "harnessctl doctor" for diagnostics`));
+
+    // Auth failed — offer fallback if configured
+    const fallbackName = agentConfig.fallback;
+    if (fallbackName && isKnownAgent(fallbackName, listAdapterNames()) && interactiveBase[fallbackName]) {
+      separator();
+      console.error(`${c.cyan("→")} fallback available: ${c.bold(fallbackName)}`);
+
+      const shouldFallback = await askConfirm(
+        `[harnessctl] ${agentName} auth failed. Launch ${fallbackName} instead? (y/n) `,
+      );
+
+      if (shouldFallback) {
+        return shellCommand({ ...opts, agent: fallbackName });
+      }
+    }
+
     return 1;
   }
 

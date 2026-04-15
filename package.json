@@ -16,6 +16,7 @@
     "dev": "bun run src/cli.ts",
     "build": "bun build --compile src/cli.ts --outfile harnessctl",
     "bundle": "bun build src/cli.ts --outdir dist --target node --format esm && node -e \"const f='dist/cli.js';let c=require('fs').readFileSync(f,'utf8');c=c.replace(/^#!.*\\n(\\/\\/ @bun\\n)?/,'#!/usr/bin/env node\\n');require('fs').writeFileSync(f,c)\"",
+    "test": "bun test",
     "prepublishOnly": "bun run bundle"
   },
   "keywords": [

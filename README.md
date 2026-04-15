@@ -131,6 +131,8 @@ harnessctl shell -- --verbose       # passthrough flags to agent
 
 This hands your terminal directly to the agent — you get its full TUI/REPL experience. harnessctl handles agent selection, config, and auth checks before launching. No output capture or logging in this mode.
 
+If the agent exits with a non-zero code (out of tokens, rate limit, crash), harnessctl detects it and offers to hand off to a configured fallback agent. See [Fallback](#fallback) below.
+
 ### Check agents
 
 ```bash
@@ -157,6 +159,51 @@ All agents healthy.
 ```bash
 harnessctl config set default claude    # set default agent
 harnessctl config get                   # show all config
+```
+
+## Fallback
+
+When an agent fails — whether from token exhaustion, rate limiting, auth failure, or a crash — harnessctl can automatically offer to hand off to a backup agent.
+
+### Configure fallback
+
+```bash
+harnessctl config set-fallback codex claude      # codex fails → offer claude
+harnessctl config set-fallback claude opencode   # claude fails → offer opencode
+harnessctl config get-fallback codex             # check current fallback
+harnessctl config remove-fallback codex          # remove fallback
+```
+
+### How it works
+
+Fallback triggers in two situations:
+
+1. **Auth failure** — agent's pre-flight auth check fails (not logged in, expired token)
+2. **Non-zero exit** — agent exits with error code (out of tokens, rate limit, crash)
+
+In both cases, harnessctl prompts before handing off:
+
+```
+⚠ codex exited with code 2
+→ fallback available: claude
+[harnessctl] Hand off to claude? (y/n)
+```
+
+Fallback is chained — if claude also has a fallback configured and fails, harnessctl offers the next agent in the chain. Circular chains (codex → claude → codex) are detected and blocked.
+
+### Works with both `run` and `shell`
+
+- **`harnessctl run`** — fallback agent receives the original prompt, prepended with the failed agent's output summary as context
+- **`harnessctl shell`** — fallback agent's interactive REPL launches in place
+
+### Agent YAML config
+
+Fallback is stored in the agent's YAML config (`~/.harnessctl/agents/<name>.yaml`):
+
+```yaml
+model: o3
+timeout: 300
+fallback: claude    # ← hand off to claude on failure
 ```
 
 ## Authentication
@@ -358,6 +405,17 @@ src/
     doctor.ts             # health checks
     config.ts             # get/set config
 ```
+
+## Testing
+
+```bash
+bun test                        # unit tests (mocked, fast)
+bash test/sim-fallback.sh       # simulation tests (fake agents + expect)
+```
+
+Unit tests use bun's built-in test runner with mocked dependencies. Simulation tests create fake agent scripts that mimic real failure modes (out-of-tokens, rate limit, auth failure, crash) and use `expect` to drive the interactive fallback prompts.
+
+Both run in CI on every push and PR.
 
 ## Roadmap
 
