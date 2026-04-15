@@ -11,7 +11,7 @@ export function invoke(
 
   // Surface warnings for unsupported flags
   for (const w of warnings) {
-    console.error(`\x1b[33m[harnessctl] warning: ${w}\x1b[0m`);
+    console.error(`[harnessctl] warning: ${w}`);
   }
 
   const timeout = agentConfig.timeout ?? 300;

@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { loadConfig, loadAgentConfig, resolveEnv, isKnownAgent } from "../config.ts";
 import { getAdapter, checkAuth, listAdapterNames } from "../adapters/registry.ts";
 import { invoke } from "../invoke.ts";
@@ -64,7 +65,7 @@ async function invokeAgent(
     env,
   };
 
-  const cwdShort = cwd.replace(require("node:os").homedir(), "~");
+  const cwdShort = cwd.replace(homedir(), "~");
   header(c.bold("harnessctl"), [agentName, auth.message, cwdShort]);
   rule();
 

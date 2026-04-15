@@ -8,8 +8,6 @@ export const codexAdapter: Adapter = {
     args: ["exec", "-", "--full-auto"],
   },
 
-  stdinMode: "prompt",
-
   argMap: {
     model: (val) => ["--model", val],
     // codex has no session resume — intentionally absent

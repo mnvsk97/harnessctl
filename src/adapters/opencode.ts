@@ -8,8 +8,6 @@ export const opencodeAdapter: Adapter = {
     args: ["--pipe"],
   },
 
-  stdinMode: "prompt",
-
   argMap: {
     model: (val) => ["--model", val],
     // opencode has no session resume — intentionally absent

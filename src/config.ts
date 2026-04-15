@@ -13,13 +13,11 @@ export const RUNS_DIR = join(HARNESS_DIR, "runs");
 
 export interface GlobalConfig {
   default_agent: string;
-  on_exhaustion?: "handoff" | "end";
   setup_done?: boolean;
 }
 
 const DEFAULT_CONFIG: GlobalConfig = {
   default_agent: "claude",
-  on_exhaustion: "handoff",
 };
 
 const DEFAULT_AGENTS: Record<string, AgentConfig> = {
@@ -55,8 +53,8 @@ export function ensureInit(): void {
       }
     }
   } catch (err: any) {
-    console.error(`\x1b[31m[harnessctl] failed to initialize config directory (~/.harnessctl): ${err.message}\x1b[0m`);
-    console.error(`\x1b[2m[harnessctl] tip: check that your home directory is writable\x1b[0m`);
+    console.error(`[harnessctl] failed to initialize config directory (~/.harnessctl): ${err.message}`);
+    console.error("[harnessctl] tip: check that your home directory is writable");
     process.exit(1);
   }
 }
@@ -67,8 +65,8 @@ export function loadConfig(): GlobalConfig {
     const raw = readFileSync(CONFIG_PATH, "utf-8");
     return { ...DEFAULT_CONFIG, ...YAML.parse(raw) };
   } catch (err: any) {
-    console.error(`\x1b[31m[harnessctl] failed to load config (${CONFIG_PATH}): ${err.message}\x1b[0m`);
-    console.error(`\x1b[2m[harnessctl] tip: check YAML syntax or delete the file to reset\x1b[0m`);
+    console.error(`[harnessctl] failed to load config (${CONFIG_PATH}): ${err.message}`);
+    console.error("[harnessctl] tip: check YAML syntax or delete the file to reset");
     process.exit(1);
   }
 }
@@ -85,8 +83,8 @@ export function loadAgentConfig(agent: string): AgentConfig {
     const raw = readFileSync(path, "utf-8");
     return YAML.parse(raw) ?? {};
   } catch (err: any) {
-    console.error(`\x1b[31m[harnessctl] failed to parse agent config (${path}): ${err.message}\x1b[0m`);
-    console.error(`\x1b[2m[harnessctl] tip: check YAML syntax or delete the file to reset\x1b[0m`);
+    console.error(`[harnessctl] failed to parse agent config (${path}): ${err.message}`);
+    console.error("[harnessctl] tip: check YAML syntax or delete the file to reset");
     process.exit(1);
   }
 }

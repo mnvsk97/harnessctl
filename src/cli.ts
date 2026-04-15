@@ -150,6 +150,6 @@ function readStdin(): Promise<string> {
 }
 
 main().catch((err) => {
-  console.error(`\x1b[31m[harnessctl] unexpected error: ${err.message}\x1b[0m`);
+  console.error(`[harnessctl] unexpected error: ${err.message}`);
   process.exit(1);
 });

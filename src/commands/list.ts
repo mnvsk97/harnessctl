@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { AGENTS_DIR, loadAgentConfig, loadConfig } from "../config.ts";
 import { getAdapter, listAdapterNames } from "../adapters/registry.ts";
 import type { Adapter } from "../adapters/types.ts";
+import { c } from "../ui.ts";
 
 export function listCommand(): void {
   const globalConfig = loadConfig();
@@ -36,8 +37,8 @@ export function listCommand(): void {
     // Check if installed
     const check = spawnSync(health.cmd, health.args, { timeout: 5000, stdio: "pipe" });
     const installed = check.status === 0;
-    const status = installed ? "\x1b[32m✓ installed\x1b[0m" : "\x1b[31m✗ not found\x1b[0m";
-    const isDefault = name === defaultAgent ? " \x1b[33m(default)\x1b[0m" : "";
+    const status = installed ? `${c.green("✓ installed")}` : `${c.red("✗ not found")}`;
+    const isDefault = name === defaultAgent ? ` ${c.yellow("(default)")}` : "";
 
     console.log(`  ${name}${isDefault}  ${status}`);
     if (config.model) {
