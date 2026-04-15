@@ -25,7 +25,7 @@ Every coding agent ships its own CLI with different flags, output formats, and s
 | Claude Code | `claude` | Built-in adapter |
 | Codex | `codex` | Built-in adapter |
 | OpenCode | `opencode` | Built-in adapter |
-| Any CLI agent | configurable | Generic adapter (YAML) |
+| Any CLI agent | configurable | Generic adapter via YAML `cmd`/`args` |
 
 ## Install
 
@@ -206,6 +206,18 @@ timeout: 300
 fallback: claude    # ← hand off to claude on failure
 ```
 
+Custom agents can be defined directly in YAML:
+
+```yaml
+cmd: myagent
+args: ["--headless", "--json"]
+model_arg: --model
+resume_arg: --session
+healthcheck:
+  args: ["--version"]
+timeout: 300
+```
+
 ## Authentication
 
 harnessctl checks authentication **before every run**. If auth is missing, it fails fast with a clear message instead of spawning the agent and getting a cryptic error.
@@ -377,6 +389,13 @@ env:
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
 timeout: 300
 extra_args: []
+```
+
+Custom agents additionally need a command definition:
+
+```yaml
+cmd: myagent
+args: ["--headless", "--json"]
 ```
 
 Invocation flags (`--print`, `--output-format`) live in adapter code, not YAML.

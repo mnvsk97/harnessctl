@@ -68,14 +68,7 @@ async function invokeAgent(
   header(c.bold("harnessctl"), [agentName, auth.message, cwdShort]);
   rule();
 
-  let result = await invoke(adapter, intent, agentConfig);
-
-  // Auto-retry fresh if resume failed (Paperclip's pattern)
-  if (resumeId && result.exitCode !== 0) {
-    console.error(c.dim("  retrying fresh (resume failed)..."));
-    intent.resumeId = undefined;
-    result = await invoke(adapter, intent, agentConfig);
-  }
+  const result = await invoke(adapter, intent, agentConfig);
 
   // Save session
   saveSession(cwd, agentName, result.sessionId, result.summary);

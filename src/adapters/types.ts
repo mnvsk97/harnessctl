@@ -45,6 +45,14 @@ export interface Adapter {
 
 export interface AgentConfig {
   adapter?: string;
+  cmd?: string;
+  args?: string[];
+  model_arg?: string;
+  resume_arg?: string;
+  healthcheck?: {
+    cmd?: string;
+    args?: string[];
+  };
   model?: string;
   env?: Record<string, string>;
   timeout?: number;

@@ -3,20 +3,78 @@ import { spawnSync } from "node:child_process";
 import { claudeAdapter } from "./claude.ts";
 import { codexAdapter } from "./codex.ts";
 import { opencodeAdapter } from "./opencode.ts";
+
 const builtinAdapters: Record<string, Adapter> = {
   claude: claudeAdapter,
   codex: codexAdapter,
   opencode: opencodeAdapter,
 };
 
-export function getAdapter(name: string, _config: AgentConfig): Adapter {
-  const adapter = builtinAdapters[name];
-  if (!adapter) {
+function createGenericAdapter(name: string, config: AgentConfig): Adapter {
+  if (!config.cmd) {
     throw new Error(
-      `Unknown agent "${name}". Supported agents: ${Object.keys(builtinAdapters).join(", ")}`,
+      `Custom agent "${name}" is missing required field "cmd" in ~/.harnessctl/agents/${name}.yaml`,
     );
   }
-  return adapter;
+
+  const cmd = config.cmd;
+  const modelArg = config.model_arg;
+  const resumeArg = config.resume_arg;
+  const healthcheck = config.healthcheck;
+
+  return {
+    name,
+    base: {
+      cmd,
+      args: config.args ?? [],
+    },
+    stdinMode: "prompt",
+    argMap: {
+      ...(modelArg ? { model: (val: string) => [modelArg, val] } : {}),
+      ...(resumeArg ? { resume: (val: string) => [resumeArg, val] } : {}),
+    },
+    parseOutput(stdout: string, stderr: string) {
+      const output = stdout.trim() || stderr.trim();
+      const lines = output.split("\n").filter(Boolean);
+      return {
+        summary: lines.at(-1) ?? "",
+      };
+    },
+    healthCheck() {
+      return {
+        cmd: healthcheck?.cmd ?? cmd,
+        args: healthcheck?.args ?? ["--version"],
+      };
+    },
+    authCheck() {
+      return {
+        cmd: healthcheck?.cmd ?? cmd,
+        args: healthcheck?.args ?? ["--version"],
+        parse(_stdout: string, _stderr: string, exitCode: number | null): AuthCheckResult {
+          if (exitCode !== null) {
+            return { ok: true, message: "auth check skipped" };
+          }
+          return { ok: false, message: `failed to start ${name}` };
+        },
+      };
+    },
+  };
+}
+
+export function getAdapter(name: string, config: AgentConfig): Adapter {
+  const adapter = builtinAdapters[name];
+  if (adapter) {
+    return adapter;
+  }
+
+  if (config.cmd) {
+    return createGenericAdapter(name, config);
+  }
+
+  throw new Error(
+    `Unknown agent "${name}". Supported built-ins: ${Object.keys(builtinAdapters).join(", ")}. ` +
+    `Custom agents require a "cmd" field in ~/.harnessctl/agents/${name}.yaml`,
+  );
 }
 
 export function listAdapterNames(): string[] {

@@ -98,7 +98,18 @@ export function saveAgentConfig(agent: string, config: AgentConfig): void {
 }
 
 export function isKnownAgent(name: string, adapterNames: string[]): boolean {
-  return adapterNames.includes(name) || existsSync(join(AGENTS_DIR, `${name}.yaml`));
+  if (adapterNames.includes(name)) return true;
+
+  const path = join(AGENTS_DIR, `${name}.yaml`);
+  if (!existsSync(path)) return false;
+
+  try {
+    const raw = readFileSync(path, "utf-8");
+    const config = YAML.parse(raw) ?? {};
+    return typeof config.cmd === "string" && config.cmd.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 export function resolveEnv(env: Record<string, string>): Record<string, string> {
