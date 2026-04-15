@@ -29,3 +29,4 @@ bun run src/cli.ts config get|set
 - Generic adapter reads full invocation from YAML as escape hatch
 - Sessions are per-agent per-cwd; handoff prepends summary to new prompt
 - Output is tee'd: streamed live AND captured for parsing
+- Pre-flight auth check runs before every `run` — each adapter implements `authCheck()` using a lightweight CLI command (e.g. `claude auth status`, `codex login status`, `opencode auth list`)

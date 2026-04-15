@@ -121,7 +121,21 @@ harnessctl run --agent claude "fix the bug" -- --max-turns 5 --add-dir ./docs
 
 ```bash
 harnessctl list       # show available agents + install status
-harnessctl doctor     # health check all agents (version, auth)
+harnessctl doctor     # health check all agents (version, auth status)
+```
+
+`doctor` verifies both installation and authentication for each agent:
+
+```
+harnessctl doctor
+
+Config: default_agent=claude
+
+  claude: ✓ 2.1.92 (Claude Code) | auth: ✓ authenticated (third_party, bedrock)
+  codex: ✓ codex-cli 0.120.0 | auth: ✓ authenticated (ChatGPT)
+  opencode: ✓ 1.0.164 | auth: ✓ authenticated (3 env vars)
+
+All agents healthy.
 ```
 
 ### Configure
@@ -130,6 +144,25 @@ harnessctl doctor     # health check all agents (version, auth)
 harnessctl config set default claude    # set default agent
 harnessctl config get                   # show all config
 ```
+
+## Authentication
+
+harnessctl checks authentication **before every run**. If auth is missing, it fails fast with a clear message instead of spawning the agent and getting a cryptic error.
+
+```
+[harnessctl] auth failed for claude: not logged in — run: claude auth login
+```
+
+Each adapter uses a lightweight CLI command to verify auth:
+
+| Agent | Auth check command | What it verifies |
+|---|---|---|
+| Claude Code | `claude auth status` | OAuth, API key, or third-party (Bedrock/Vertex) |
+| Codex | `codex login status` | ChatGPT login or API key |
+| OpenCode | `opencode auth list` | Stored credentials or env vars (e.g. AWS keys) |
+| Generic | skipped | No auth check for custom agents |
+
+Auth is also shown in `harnessctl doctor` output alongside version info.
 
 ## How it works
 
@@ -250,6 +283,17 @@ export const myAgentAdapter: Adapter = {
   healthCheck() {
     return { cmd: "myagent", args: ["--version"] };
   },
+
+  authCheck() {
+    return {
+      cmd: "myagent",
+      args: ["auth", "status"],
+      parse(stdout, _stderr, exitCode) {
+        if (exitCode === 0) return { ok: true, message: "authenticated" };
+        return { ok: false, message: "not logged in — run: myagent auth login" };
+      },
+    };
+  },
 };
 ```
 
@@ -284,6 +328,7 @@ myagent: {
 | Headless invocation flags | Adapter `base.args` | `["--print", "-", "--output-format", "stream-json"]` |
 | Flag name translation | Adapter `argMap` | `model: (val) => ["--model", val]` |
 | Output parsing | Adapter `parseOutput` | Extract cost, tokens, session ID from JSON |
+| Auth verification | Adapter `authCheck` | `claude auth status`, `codex login status` |
 | User preferences | YAML `~/.harnessctl/agents/` | `model: claude-sonnet-4-6` |
 | One-off flags | CLI `-- <flags>` | `-- --max-turns 5` |
 
