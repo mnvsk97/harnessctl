@@ -1,4 +1,4 @@
-import type { Adapter, RunResult } from "./types.ts";
+import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
 
 export const claudeAdapter: Adapter = {
   name: "claude",
@@ -51,5 +51,32 @@ export const claudeAdapter: Adapter = {
 
   healthCheck() {
     return { cmd: "claude", args: ["--version"] };
+  },
+
+  authCheck() {
+    return {
+      cmd: "claude",
+      args: ["auth", "status"],
+      parse(stdout: string, _stderr: string, exitCode: number | null): AuthCheckResult {
+        try {
+          const data = JSON.parse(stdout.trim());
+          if (data.loggedIn) {
+            const parts = [data.authMethod, data.apiProvider].filter(Boolean);
+            return {
+              ok: true,
+              method: data.authMethod,
+              provider: data.apiProvider,
+              message: `authenticated${parts.length ? ` (${parts.join(", ")})` : ""}`,
+            };
+          }
+          return { ok: false, message: "not logged in — run: claude auth login" };
+        } catch {
+          if (exitCode === 0) {
+            return { ok: true, message: "authenticated" };
+          }
+          return { ok: false, message: "auth check failed — run: claude auth login" };
+        }
+      },
+    };
   },
 };

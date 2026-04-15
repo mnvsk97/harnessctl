@@ -1,4 +1,5 @@
-import type { Adapter, AgentConfig, InvokeIntent } from "./types.ts";
+import type { Adapter, AgentConfig, AuthCheckResult, InvokeIntent } from "./types.ts";
+import { spawnSync } from "node:child_process";
 import { claudeAdapter } from "./claude.ts";
 import { codexAdapter } from "./codex.ts";
 import { opencodeAdapter } from "./opencode.ts";
@@ -19,6 +20,27 @@ export function getAdapter(name: string, config: AgentConfig): Adapter {
 
 export function listAdapterNames(): string[] {
   return Object.keys(builtinAdapters);
+}
+
+/**
+ * Run the adapter's auth check and return the result.
+ */
+export function checkAuth(adapter: Adapter): AuthCheckResult {
+  const check = adapter.authCheck();
+  const result = spawnSync(check.cmd, check.args, {
+    timeout: 10000,
+    stdio: "pipe",
+  });
+
+  if (result.error) {
+    return { ok: false, message: `auth check failed: ${result.error.message}` };
+  }
+
+  return check.parse(
+    result.stdout?.toString() ?? "",
+    result.stderr?.toString() ?? "",
+    result.status,
+  );
 }
 
 /**

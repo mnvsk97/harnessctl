@@ -1,4 +1,4 @@
-import type { Adapter, AgentConfig, RunResult } from "./types.ts";
+import type { Adapter, AgentConfig, AuthCheckResult, RunResult } from "./types.ts";
 
 export function createGenericAdapter(name: string, config: AgentConfig): Adapter {
   const command = config.command ?? name;
@@ -30,6 +30,17 @@ export function createGenericAdapter(name: string, config: AgentConfig): Adapter
     healthCheck() {
       const parts = healthCheckCmd.split(/\s+/);
       return { cmd: parts[0], args: parts.slice(1) };
+    },
+
+    authCheck() {
+      // Generic adapters skip auth check — always pass
+      return {
+        cmd: "true",
+        args: [],
+        parse(_stdout: string, _stderr: string, _exitCode: number | null): AuthCheckResult {
+          return { ok: true, message: "skipped (generic adapter)" };
+        },
+      };
     },
   };
 }

@@ -29,6 +29,13 @@ export type ArgMapper = (value: string) => string[];
  */
 export type ArgMap = Record<string, ArgMapper>;
 
+export interface AuthCheckResult {
+  ok: boolean;
+  method?: string;   // e.g. "oauth", "api_key", "third_party"
+  provider?: string; // e.g. "bedrock", "openai", "anthropic"
+  message: string;   // human-readable status
+}
+
 export interface Adapter {
   name: string;
   /** Base command and fixed args for headless invocation */
@@ -41,6 +48,8 @@ export interface Adapter {
   parseOutput(stdout: string, stderr: string): Partial<RunResult>;
   /** Command to check if the agent is installed */
   healthCheck(): { cmd: string; args: string[] };
+  /** Check if authentication is configured and valid */
+  authCheck(): { cmd: string; args: string[]; parse: (stdout: string, stderr: string, exitCode: number | null) => AuthCheckResult };
 }
 
 export interface AgentConfig {

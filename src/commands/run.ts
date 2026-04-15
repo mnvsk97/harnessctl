@@ -1,5 +1,5 @@
 import { loadConfig, loadAgentConfig, resolveEnv } from "../config.ts";
-import { getAdapter } from "../adapters/registry.ts";
+import { getAdapter, checkAuth } from "../adapters/registry.ts";
 import { invoke } from "../invoke.ts";
 import { saveSession, loadSession, loadLastSession } from "../session.ts";
 import { writeRunLog } from "../log.ts";
@@ -19,6 +19,14 @@ export async function runCommand(opts: RunOptions): Promise<number> {
   const agentConfig = loadAgentConfig(agentName);
   const adapter = getAdapter(agentName, agentConfig);
   const cwd = process.cwd();
+
+  // Pre-flight auth check
+  const auth = checkAuth(adapter);
+  if (!auth.ok) {
+    console.error(`\x1b[31m[harnessctl] auth failed for ${agentName}: ${auth.message}\x1b[0m`);
+    return 1;
+  }
+  console.error(`\x1b[2m[harnessctl] ${agentName}: ${auth.message}\x1b[0m`);
 
   let prompt = opts.prompt;
 

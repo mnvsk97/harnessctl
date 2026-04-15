@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 import { AGENTS_DIR, loadAgentConfig, loadConfig } from "../config.ts";
-import { getAdapter, listAdapterNames } from "../adapters/registry.ts";
+import { getAdapter, listAdapterNames, checkAuth } from "../adapters/registry.ts";
 
 export function doctorCommand(): void {
   const globalConfig = loadConfig();
@@ -30,7 +30,10 @@ export function doctorCommand(): void {
 
     if (check.status === 0) {
       const version = check.stdout?.toString().trim().split("\n")[0] ?? "";
-      console.log(`\x1b[32m✓\x1b[0m ${version}`);
+      const auth = checkAuth(adapter);
+      const authIcon = auth.ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m";
+      console.log(`\x1b[32m✓\x1b[0m ${version} | auth: ${authIcon} ${auth.message}`);
+      if (!auth.ok) allOk = false;
     } else if (check.error) {
       console.log(`\x1b[31m✗ not installed\x1b[0m (${health.cmd} not found in PATH)`);
       allOk = false;

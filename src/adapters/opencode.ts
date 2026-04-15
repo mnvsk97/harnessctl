@@ -1,4 +1,4 @@
-import type { Adapter, RunResult } from "./types.ts";
+import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
 
 export const opencodeAdapter: Adapter = {
   name: "opencode",
@@ -49,5 +49,34 @@ export const opencodeAdapter: Adapter = {
 
   healthCheck() {
     return { cmd: "opencode", args: ["--version"] };
+  },
+
+  authCheck() {
+    return {
+      cmd: "opencode",
+      args: ["auth", "list"],
+      parse(stdout: string, stderr: string, exitCode: number | null): AuthCheckResult {
+        const output = stdout + stderr;
+        // Check for credentials in the output
+        const hasCredentials = /\d+ credentials/.test(output);
+        const credCount = output.match(/(\d+) credentials/)?.[1];
+        const hasEnvVars = /\d+ environment variables/.test(output);
+        const envCount = output.match(/(\d+) environment variables/)?.[1];
+
+        const credsOk = credCount && parseInt(credCount) > 0;
+        const envsOk = envCount && parseInt(envCount) > 0;
+
+        if (exitCode === 0 && (credsOk || envsOk)) {
+          const parts: string[] = [];
+          if (credsOk) parts.push(`${credCount} credentials`);
+          if (envsOk) parts.push(`${envCount} env vars`);
+          return {
+            ok: true,
+            message: `authenticated (${parts.join(", ")})`,
+          };
+        }
+        return { ok: false, message: "no credentials found — run: opencode auth login" };
+      },
+    };
   },
 };

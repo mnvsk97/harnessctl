@@ -1,4 +1,4 @@
-import type { Adapter, RunResult } from "./types.ts";
+import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
 
 export const codexAdapter: Adapter = {
   name: "codex",
@@ -49,5 +49,25 @@ export const codexAdapter: Adapter = {
 
   healthCheck() {
     return { cmd: "codex", args: ["--version"] };
+  },
+
+  authCheck() {
+    return {
+      cmd: "codex",
+      args: ["login", "status"],
+      parse(stdout: string, stderr: string, exitCode: number | null): AuthCheckResult {
+        const output = (stdout + stderr).toLowerCase();
+        if (exitCode === 0 && output.includes("logged in")) {
+          const method = output.includes("chatgpt") ? "ChatGPT" :
+                         output.includes("api key") ? "API key" : undefined;
+          return {
+            ok: true,
+            method: method?.toLowerCase(),
+            message: `authenticated${method ? ` (${method})` : ""}`,
+          };
+        }
+        return { ok: false, message: "not logged in — run: codex login" };
+      },
+    };
   },
 };
