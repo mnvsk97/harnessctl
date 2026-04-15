@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline";
 import { loadConfig, saveConfig, loadAgentConfig, saveAgentConfig } from "../config.ts";
 import { listAdapterNames } from "../adapters/registry.ts";
+import { c } from "../ui.ts";
 
 const AGENTS = listAdapterNames();
 
@@ -15,7 +16,7 @@ async function ask(
   defaultOption?: string,
 ): Promise<string> {
   const optStr = options
-    .map((o) => (o === defaultOption ? `\x1b[1m${o}\x1b[0m` : o))
+    .map((o) => (o === defaultOption ? c.bold(o) : o))
     .join(" / ");
   const hint = defaultOption ? ` (default: ${defaultOption})` : "";
 
@@ -30,7 +31,7 @@ async function ask(
 export async function setupCommand(): Promise<void> {
   const config = loadConfig();
 
-  console.log("\x1b[1mharnessctl setup\x1b[0m\n");
+  console.log(`${c.bold("harnessctl setup")}\n`);
   console.log("Let's configure your coding agent preferences.\n");
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -62,24 +63,15 @@ export async function setupCommand(): Promise<void> {
     }
     saveAgentConfig(defaultAgent, agentConfig);
 
-    // 3. On token exhaustion
-    const onExhaustion = await ask(
-      rl,
-      "When an agent runs out of tokens?",
-      ["handoff", "end"],
-      config.on_exhaustion || "handoff",
-    );
-    config.on_exhaustion = onExhaustion as "handoff" | "end";
     config.setup_done = true;
 
     // Save
     saveConfig(config);
 
-    console.log("\n\x1b[32m✓ Setup complete!\x1b[0m\n");
+    console.log(`\n${c.green("✓ Setup complete!")}\n`);
     console.log(`  default agent:     ${config.default_agent}`);
     console.log(`  fallback agent:    ${fallbackAnswer === "none" ? "none" : fallbackAnswer}`);
-    console.log(`  on token exhaust:  ${config.on_exhaustion}`);
-    console.log(`\nRun \x1b[2mharnessctl doctor\x1b[0m to verify your agents are installed and authenticated.`);
+    console.log(`\nRun ${c.dim("harnessctl doctor")} to verify your agents are installed and authenticated.`);
   } finally {
     rl.close();
   }

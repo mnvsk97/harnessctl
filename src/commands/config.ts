@@ -53,7 +53,7 @@ export function configCommand(args: string[]): void {
       process.exit(1);
     }
     if (agent === fallback) {
-      console.error(`\x1b[31m[harnessctl] agent cannot fall back to itself\x1b[0m`);
+      console.error("[harnessctl] agent cannot fall back to itself");
       process.exit(1);
     }
     const agentConfig = loadAgentConfig(agent);

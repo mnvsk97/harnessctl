@@ -31,8 +31,6 @@ export interface Adapter {
   name: string;
   /** Base command and fixed args for headless invocation */
   base: { cmd: string; args: string[] };
-  /** How the prompt is delivered — written to stdin */
-  stdinMode: "prompt";
   /** Declarative mapping: harnessctl flag -> agent CLI args */
   argMap: ArgMap;
   /** Parse captured output into structured result */

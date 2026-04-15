@@ -8,8 +8,6 @@ export const claudeAdapter: Adapter = {
     args: ["--print", "-", "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"],
   },
 
-  stdinMode: "prompt",
-
   argMap: {
     model:  (val) => ["--model", val],
     resume: (val) => ["--resume", val],
