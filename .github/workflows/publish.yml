@@ -1,38 +1,78 @@
-name: Release (manual tag)
-
-# This workflow handles manually pushed tags (e.g. for major/minor releases).
-# For automatic patch releases on every merge to main, see publish.yml.
+name: Publish
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
 
 permissions:
   contents: write
 
 jobs:
-  # Skip if the tag was already created by publish.yml
+  # Skip if the last commit was a version bump (avoid infinite loop)
   check:
     runs-on: ubuntu-latest
     outputs:
-      should_run: ${{ steps.guard.outputs.should_run }}
+      should_publish: ${{ steps.guard.outputs.should_publish }}
     steps:
       - uses: actions/checkout@v4
-      - name: Check if automated tag
+      - name: Check if version bump commit
         id: guard
         run: |
           MSG=$(git log -1 --pretty=%s)
           if echo "$MSG" | grep -q "^chore: bump version to"; then
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "Skipping — tag was created by publish.yml"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
           else
-            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "should_publish=true" >> $GITHUB_OUTPUT
           fi
 
-  build:
+  version-and-tag:
     needs: check
-    if: needs.check.outputs.should_run == 'true'
+    if: needs.check.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+          node -e "
+            const pkg = require('./package.json');
+            pkg.version = '$NEW_VERSION';
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Bumped $CURRENT -> $NEW_VERSION"
+
+      - name: Commit and tag
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}"
+          git tag "v${{ steps.bump.outputs.version }}"
+          git push --follow-tags
+
+  build:
+    needs: version-and-tag
     strategy:
       matrix:
         include:
@@ -53,6 +93,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: "v${{ needs.version-and-tag.outputs.new_version }}"
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -75,8 +117,7 @@ jobs:
           path: harnessctl-${{ matrix.target }}*
 
   publish-github:
-    needs: [check, build]
-    if: needs.check.outputs.should_run == 'true'
+    needs: [version-and-tag, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -87,15 +128,17 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: "v${{ needs.version-and-tag.outputs.new_version }}"
           files: artifacts/*
           generate_release_notes: true
 
   publish-npm:
-    needs: [check, build]
-    if: needs.check.outputs.should_run == 'true'
+    needs: [version-and-tag, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: "v${{ needs.version-and-tag.outputs.new_version }}"
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -108,19 +151,7 @@ jobs:
 
       - run: bun install
 
-      - name: Check if version exists on npm
-        id: check
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          if npm view harnessctl@$VERSION version 2>/dev/null; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publish to npm
-        if: steps.check.outputs.exists == 'false'
+      - name: Bundle and publish
         run: |
           bun run bundle
           npm publish
@@ -128,15 +159,14 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   update-homebrew:
-    needs: [check, publish-github]
-    if: needs.check.outputs.should_run == 'true'
+    needs: [version-and-tag, publish-github]
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Homebrew tap update
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ needs.version-and-tag.outputs.new_version }}"
           gh api repos/mnvsk97/homebrew-tap/dispatches \
             -f event_type=update-harnessctl \
             -f "client_payload[version]=$VERSION"
