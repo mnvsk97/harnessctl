@@ -4,11 +4,13 @@ import { runCommand } from "./commands/run.ts";
 import { listCommand } from "./commands/list.ts";
 import { doctorCommand } from "./commands/doctor.ts";
 import { configCommand } from "./commands/config.ts";
+import { shellCommand } from "./commands/shell.ts";
 
 const USAGE = `harnessctl — universal coding agent CLI
 
 Usage:
   harnessctl run [--agent <name>] [--resume] <prompt> [-- <extra-args>...]
+  harnessctl shell [--agent <name>] [-- <extra-args>...]
   harnessctl list
   harnessctl doctor
   harnessctl config get [key]
@@ -26,6 +28,8 @@ Examples:
   harnessctl run --agent codex "fix the auth bug"
   harnessctl run --resume "now add tests for that"
   harnessctl run --agent claude "fix this" -- --max-turns 5
+  harnessctl shell                          # interactive REPL with default agent
+  harnessctl shell --agent codex            # interactive REPL with codex
   cat error.log | harnessctl run "fix this"
   harnessctl config set default claude
 `;
@@ -85,6 +89,31 @@ async function main() {
 
       const exitCode = await runCommand({ agent, resume, prompt, extraArgs, pipedInput });
       process.exit(exitCode);
+    }
+
+    case "shell": {
+      const shellArgs = argv.slice(1);
+      let shellAgent: string | undefined;
+      const shellExtraArgs: string[] = [];
+      let shellPastSep = false;
+
+      for (let i = 0; i < shellArgs.length; i++) {
+        if (shellPastSep) {
+          shellExtraArgs.push(shellArgs[i]);
+          continue;
+        }
+        if (shellArgs[i] === "--") {
+          shellPastSep = true;
+          continue;
+        }
+        if (shellArgs[i] === "--agent" || shellArgs[i] === "-a") {
+          shellAgent = shellArgs[++i];
+          continue;
+        }
+      }
+
+      const shellExitCode = await shellCommand({ agent: shellAgent, extraArgs: shellExtraArgs });
+      process.exit(shellExitCode);
     }
 
     case "list":

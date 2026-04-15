@@ -1,13 +1,10 @@
 import { createInterface } from "node:readline";
-import { loadConfig, loadAgentConfig, resolveEnv } from "../config.ts";
+import { loadConfig, loadAgentConfig, resolveEnv, isKnownAgent } from "../config.ts";
 import { getAdapter, checkAuth, listAdapterNames } from "../adapters/registry.ts";
 import { invoke } from "../invoke.ts";
 import { saveSession, loadSession, loadLastSession } from "../session.ts";
 import { writeRunLog } from "../log.ts";
 import type { InvokeIntent, AgentConfig } from "../adapters/types.ts";
-import { existsSync } from "node:fs";
-import { AGENTS_DIR } from "../config.ts";
-import { join } from "node:path";
 
 export interface RunOptions {
   agent?: string;
@@ -123,16 +120,11 @@ async function invokeAgent(
   return { exitCode: result.exitCode ?? 1, summary: result.summary };
 }
 
-/** Check if an agent name is known (builtin or has a YAML config). */
-function isKnownAgent(name: string): boolean {
-  return listAdapterNames().includes(name) || existsSync(join(AGENTS_DIR, `${name}.yaml`));
-}
-
 export async function runCommand(opts: RunOptions): Promise<number> {
   const globalConfig = loadConfig();
   const agentName = opts.agent ?? globalConfig.default_agent;
 
-  if (!isKnownAgent(agentName)) {
+  if (!isKnownAgent(agentName, listAdapterNames())) {
     const known = listAdapterNames();
     console.error(`\x1b[31m[harnessctl] unknown agent: "${agentName}"\x1b[0m`);
     console.error(`\x1b[2m[harnessctl] available agents: ${known.join(", ")}\x1b[0m`);

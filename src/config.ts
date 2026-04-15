@@ -94,6 +94,10 @@ export function saveAgentConfig(agent: string, config: AgentConfig): void {
   writeFileSync(path, YAML.stringify(config));
 }
 
+export function isKnownAgent(name: string, adapterNames: string[]): boolean {
+  return adapterNames.includes(name) || existsSync(join(AGENTS_DIR, `${name}.yaml`));
+}
+
 export function resolveEnv(env: Record<string, string>): Record<string, string> {
   const resolved: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {

@@ -8,6 +8,8 @@ harnessctl run --agent codex "fix the auth bug"            # pick agent
 harnessctl run --resume "now add tests"                    # resume session
 harnessctl run --agent claude "fix" -- --max-turns 5       # passthrough flags
 cat error.log | harnessctl run "fix this"                  # pipe context
+harnessctl shell                                           # interactive REPL
+harnessctl shell --agent codex                             # REPL with specific agent
 ```
 
 ## Why
@@ -116,6 +118,18 @@ Everything after `--` is passed directly to the agent CLI:
 ```bash
 harnessctl run --agent claude "fix the bug" -- --max-turns 5 --add-dir ./docs
 ```
+
+### Interactive shell
+
+Launch an agent's native interactive REPL through harnessctl:
+
+```bash
+harnessctl shell                    # default agent
+harnessctl shell --agent codex      # pick agent
+harnessctl shell -- --verbose       # passthrough flags to agent
+```
+
+This hands your terminal directly to the agent — you get its full TUI/REPL experience. harnessctl handles agent selection, config, and auth checks before launching. No output capture or logging in this mode.
 
 ### Check agents
 
@@ -338,7 +352,8 @@ src/
     registry.ts           # adapter lookup + shared buildCommand
 
   commands/
-    run.ts                # run command
+    run.ts                # run command (headless, one-shot)
+    shell.ts              # shell command (interactive REPL)
     list.ts               # list agents
     doctor.ts             # health checks
     config.ts             # get/set config
@@ -364,7 +379,7 @@ src/
 harnessctl is plumbing, not a platform. These are explicitly out:
 
 - Model routing (that's [OpenCode](https://github.com/opencode-ai/opencode))
-- Agent orchestration (that's [Paperclip](https://github.com/nichochar/paperclip))
+- Agent orchestration
 - Agent frameworks (LangChain, CrewAI, etc.)
 
 ## License

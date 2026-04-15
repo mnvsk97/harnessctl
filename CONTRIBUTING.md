@@ -39,11 +39,11 @@ Look at `src/adapters/claude.ts` as a reference — it's about 50 lines.
 src/
   cli.ts           # entrypoint
   config.ts        # config loading
-  invoke.ts        # subprocess execution
+  invoke.ts        # subprocess execution (headless run)
   session.ts       # session management
   log.ts           # run logging
   adapters/        # per-agent translation layer
-  commands/        # CLI commands
+  commands/        # CLI commands (run, shell, list, doctor, config)
 ```
 
 ## Guidelines

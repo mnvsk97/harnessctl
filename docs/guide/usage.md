@@ -1,5 +1,7 @@
 # Usage
 
+harnessctl has two modes: **headless** (`run`) for one-shot prompts with output capture, and **interactive** (`shell`) for launching an agent's native REPL.
+
 ## Running prompts
 
 The core command is `run`:
@@ -71,6 +73,21 @@ Everything after `--` is passed directly to the agent CLI:
 harnessctl run --agent claude "fix" -- --max-turns 5 --add-dir ./docs
 harnessctl run --agent codex "fix" -- --model o3
 ```
+
+## Interactive shell
+
+Launch an agent's native interactive REPL:
+
+```bash
+harnessctl shell                          # default agent
+harnessctl shell --agent codex            # pick agent
+harnessctl shell -a opencode              # shorthand
+harnessctl shell -- --verbose             # passthrough flags
+```
+
+This hands your terminal directly to the agent (`stdio: "inherit"`). harnessctl handles agent selection, config resolution, model flags, and pre-flight auth checks before launching. The agent owns the full terminal — you get its native TUI/REPL experience.
+
+**Trade-off:** No output capture, logging, or session tracking in shell mode. Use `run` when you need structured results.
 
 ## Flag support per agent
 

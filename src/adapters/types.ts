@@ -16,18 +16,9 @@ export interface RunResult {
   duration: number;
 }
 
-/**
- * Maps a harnessctl flag to agent CLI args.
- * Returns the arg array to append, or null to skip (unsupported).
- */
-export type ArgMapper = (value: string) => string[];
+type ArgMapper = (value: string) => string[];
 
-/**
- * Declares which harnessctl flags an adapter supports and how they translate.
- * Keys are harnessctl flag names (model, resume).
- * Values are the translation function.
- */
-export type ArgMap = Record<string, ArgMapper>;
+type ArgMap = Record<string, ArgMapper>;
 
 export interface AuthCheckResult {
   ok: boolean;

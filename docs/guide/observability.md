@@ -1,8 +1,12 @@
 # Observability
 
+::: tip
+Observability features (run logs, inline stats) apply to `harnessctl run` only. `harnessctl shell` hands the terminal to the agent directly — no output capture or logging.
+:::
+
 ## Run logs
 
-Every invocation is logged as a JSON file in `~/.harnessctl/runs/`:
+Every `run` invocation is logged as a JSON file in `~/.harnessctl/runs/`:
 
 ```
 ~/.harnessctl/runs/

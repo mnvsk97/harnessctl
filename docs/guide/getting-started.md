@@ -61,11 +61,14 @@ bun build --compile src/cli.ts --outfile harnessctl
 ## Quick start
 
 ```bash
-# Run with default agent (claude)
+# Run a one-shot prompt (headless)
 harnessctl run "fix the auth bug"
 
 # Run with a specific agent
 harnessctl run --agent codex "fix the auth bug"
+
+# Launch interactive REPL
+harnessctl shell
 
 # Check what's installed
 harnessctl doctor

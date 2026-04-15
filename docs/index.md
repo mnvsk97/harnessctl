@@ -14,6 +14,8 @@ hero:
 features:
   - title: One interface
     details: Same command whether you're running Claude Code, Codex, OpenCode, or any CLI agent.
+  - title: Run or shell
+    details: One-shot headless prompts with full capture, or launch the agent's native interactive REPL.
   - title: Session continuity
     details: Resume conversations within an agent, or hand off context when switching agents mid-task.
   - title: Full observability

@@ -1,5 +1,5 @@
 import { existsSync, readdirSync } from "node:fs";
-import { join, basename } from "node:path";
+import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 import { AGENTS_DIR, loadAgentConfig, loadConfig } from "../config.ts";
 import { getAdapter, listAdapterNames } from "../adapters/registry.ts";
