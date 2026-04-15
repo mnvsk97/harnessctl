@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { loadConfig, loadAgentConfig, resolveEnv, isKnownAgent } from "../config.ts";
 import { getAdapter, checkAuth, listAdapterNames } from "../adapters/registry.ts";
+import { header, separator, c } from "../ui.ts";
 
 export interface ShellOptions {
   agent?: string;
@@ -23,8 +24,8 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
 
   if (!isKnownAgent(agentName, listAdapterNames())) {
     const known = listAdapterNames();
-    console.error(`\x1b[31m[harnessctl] unknown agent: "${agentName}"\x1b[0m`);
-    console.error(`\x1b[2m[harnessctl] available agents: ${known.join(", ")}\x1b[0m`);
+    console.error(`${c.red("✗")} unknown agent: "${agentName}"`);
+    console.error(c.dim(`  available: ${known.join(", ")}`));
     return 1;
   }
 
@@ -34,15 +35,14 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
   // Pre-flight auth check
   const auth = checkAuth(adapter);
   if (!auth.ok) {
-    console.error(`\x1b[31m[harnessctl] ${agentName}: ${auth.message}\x1b[0m`);
-    console.error(`\x1b[2m[harnessctl] tip: run "harnessctl doctor" for detailed diagnostics\x1b[0m`);
+    console.error(`${c.red("✗")} ${agentName}: ${auth.message}`);
+    console.error(c.dim(`  tip: run "harnessctl doctor" for diagnostics`));
     return 1;
   }
-  console.error(`\x1b[2m[harnessctl] ${agentName}: ${auth.message}\x1b[0m`);
 
   const base = interactiveBase[agentName];
   if (!base) {
-    console.error(`\x1b[31m[harnessctl] shell mode not supported for "${agentName}"\x1b[0m`);
+    console.error(`${c.red("✗")} shell mode not supported for "${agentName}"`);
     return 1;
   }
 
@@ -58,7 +58,8 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
 
   const env = resolveEnv(agentConfig.env ?? {});
 
-  console.error(`\x1b[2m[harnessctl] launching ${agentName} interactively...\x1b[0m`);
+  header(c.bold("harnessctl shell"), [agentName, auth.message]);
+  separator();
 
   return new Promise((resolve) => {
     const child = spawn(base.cmd, args, {
@@ -73,10 +74,10 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
 
     child.on("error", (err: NodeJS.ErrnoException) => {
       if (err.code === "ENOENT") {
-        console.error(`\x1b[31m[harnessctl] "${base.cmd}" not found in PATH\x1b[0m`);
-        console.error(`\x1b[2m[harnessctl] tip: run "harnessctl doctor" to check agent health\x1b[0m`);
+        console.error(`${c.red("✗")} "${base.cmd}" not found in PATH`);
+        console.error(c.dim(`  tip: run "harnessctl doctor" to check agent health`));
       } else {
-        console.error(`\x1b[31m[harnessctl] failed to start ${base.cmd}: ${err.message}\x1b[0m`);
+        console.error(`${c.red("✗")} failed to start ${base.cmd}: ${err.message}`);
       }
       resolve(1);
     });
