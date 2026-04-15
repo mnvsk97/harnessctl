@@ -1,0 +1,56 @@
+# Configuration
+
+## Global config
+
+```bash
+harnessctl config get                    # show all
+harnessctl config get default_agent      # show one key
+harnessctl config set default claude     # set default agent
+```
+
+Config lives at `~/.harnessctl/config.yaml`:
+
+```yaml
+default_agent: claude
+```
+
+## Agent config
+
+Each agent has a YAML file at `~/.harnessctl/agents/<name>.yaml`:
+
+```yaml
+# ~/.harnessctl/agents/claude.yaml
+model: claude-sonnet-4-6
+env:
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+timeout: 300
+extra_args: []
+```
+
+### Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `model` | string | Model to use (passed via adapter's argMap) |
+| `env` | map | Environment variables. `${VAR}` syntax resolves from your shell env |
+| `timeout` | number | Seconds before SIGTERM (default: 300) |
+| `extra_args` | list | Args appended to every invocation of this agent |
+
+### What goes in YAML vs adapter code
+
+- **YAML** — user preferences: model, env, timeout, extra args
+- **Adapter code** — invocation mechanics: headless flags, output format, stdin mode
+
+You never put `--print` or `--output-format` in YAML. That's the adapter's job.
+
+## Environment variables
+
+Env vars in agent YAML support `${VAR}` expansion:
+
+```yaml
+env:
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+```
+
+These are resolved at runtime from your shell environment and passed to the agent subprocess.

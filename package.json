@@ -1,0 +1,13 @@
+{
+  "name": "harnessctl",
+  "version": "0.1.0",
+  "type": "module",
+  "module": "src/cli.ts",
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun build --compile src/cli.ts --outfile harnessctl"
+  },
+  "dependencies": {
+    "yaml": "^2.7.1"
+  }
+}
