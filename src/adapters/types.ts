@@ -58,11 +58,6 @@ export interface AgentConfig {
   env?: Record<string, string>;
   timeout?: number;
   extra_args?: string[];
-  // Generic adapter fields
-  command?: string;
-  args?: string[];
-  stdin_mode?: string;
-  output_format?: string;
-  health_check?: string;
-  arg_map?: Record<string, string>;
+  /** Agent to fall back to when this agent fails (e.g. out of credits/tokens) */
+  fallback?: string;
 }

@@ -223,33 +223,7 @@ Unsupported flags produce a warning instead of silent failure:
 
 ## Adding a new agent
 
-### Option 1: Generic adapter (YAML only, no code)
-
-For any agent that has a CLI with headless/pipe mode. Create `~/.harnessctl/agents/gemini.yaml`:
-
-```yaml
-adapter: generic
-command: gemini
-args: [--headless, --json]
-stdin_mode: prompt
-health_check: gemini --version
-arg_map:
-  model: "--model"
-  resume: "--continue-session"
-```
-
-That's it. `harnessctl run --agent gemini "hello"` works immediately.
-
-The `arg_map` is the key part — it tells harnessctl how to translate its flags to this agent's flags. If the agent calls its model flag `--llm` instead of `--model`, just change the mapping:
-
-```yaml
-arg_map:
-  model: "--llm"
-```
-
-### Option 2: Dedicated adapter (code, ~50 lines)
-
-When you need structured output parsing (cost, tokens, session IDs), write a dedicated adapter.
+To support a new agent, write a dedicated adapter (~50 lines).
 
 **Step 1.** Create `src/adapters/myagent.ts`:
 
@@ -361,7 +335,6 @@ src/
     claude.ts             # Claude Code adapter
     codex.ts              # Codex adapter
     opencode.ts           # OpenCode adapter
-    generic.ts            # Generic adapter (reads invocation from YAML)
     registry.ts           # adapter lookup + shared buildCommand
 
   commands/

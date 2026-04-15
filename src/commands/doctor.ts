@@ -32,10 +32,18 @@ export function doctorCommand(): void {
       const version = check.stdout?.toString().trim().split("\n")[0] ?? "";
       const auth = checkAuth(adapter);
       const authIcon = auth.ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m";
-      console.log(`\x1b[32m✓\x1b[0m ${version} | auth: ${authIcon} ${auth.message}`);
+      const fallback = config.fallback ? ` | fallback: ${config.fallback}` : "";
+      console.log(`\x1b[32m✓\x1b[0m ${version} | auth: ${authIcon} ${auth.message}${fallback}`);
       if (!auth.ok) allOk = false;
     } else if (check.error) {
-      console.log(`\x1b[31m✗ not installed\x1b[0m (${health.cmd} not found in PATH)`);
+      const err = check.error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        console.log(`\x1b[31m✗ not installed\x1b[0m ("${health.cmd}" not found in PATH)`);
+      } else if (err.code === "ETIMEDOUT") {
+        console.log(`\x1b[31m✗ timed out\x1b[0m (health check took too long)`);
+      } else {
+        console.log(`\x1b[31m✗ error\x1b[0m (${err.message})`);
+      }
       allOk = false;
     } else {
       console.log(`\x1b[31m✗ error\x1b[0m (exit code ${check.status})`);
@@ -48,5 +56,6 @@ export function doctorCommand(): void {
     console.log("All agents healthy.");
   } else {
     console.log("Some agents are missing or unhealthy.");
+    console.log("  Install missing agents or run their login commands to fix auth issues.");
   }
 }

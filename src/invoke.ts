@@ -68,9 +68,21 @@ export function invoke(
       });
     });
 
-    child.on("error", (err) => {
+    child.on("error", (err: NodeJS.ErrnoException) => {
       clearTimeout(timer);
-      reject(new Error(`Failed to spawn ${cmd}: ${err.message}`));
+      if (err.code === "ENOENT") {
+        reject(new Error(
+          `"${cmd}" not found. Is ${adapter.name} installed and in your PATH?\n` +
+          `  Run "harnessctl doctor" to check agent health.`,
+        ));
+      } else if (err.code === "EACCES") {
+        reject(new Error(
+          `Permission denied running "${cmd}". Check file permissions.\n` +
+          `  Try: chmod +x $(which ${cmd})`,
+        ));
+      } else {
+        reject(new Error(`Failed to start ${cmd}: ${err.message}`));
+      }
     });
   });
 }

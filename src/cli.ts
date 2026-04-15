@@ -13,6 +13,9 @@ Usage:
   harnessctl doctor
   harnessctl config get [key]
   harnessctl config set <key> <value>
+  harnessctl config set-fallback <agent> <fallback>
+  harnessctl config get-fallback <agent>
+  harnessctl config remove-fallback <agent>
 
 Options:
   --agent <name>   Agent to use (default: from config)
@@ -111,4 +114,7 @@ function readStdin(): Promise<string> {
   });
 }
 
-main();
+main().catch((err) => {
+  console.error(`\x1b[31m[harnessctl] unexpected error: ${err.message}\x1b[0m`);
+  process.exit(1);
+});

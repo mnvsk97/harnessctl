@@ -54,32 +54,7 @@ argMap: {
 
 When a flag is used that the adapter doesn't support, harnessctl warns instead of silently dropping it.
 
-## Generic adapter
-
-For agents without a built-in adapter, create a YAML config with `adapter: generic`:
-
-```yaml
-# ~/.harnessctl/agents/gemini.yaml
-adapter: generic
-command: gemini
-args: [--headless, --json]
-stdin_mode: prompt
-health_check: gemini --version
-arg_map:
-  model: "--model"
-```
-
-### Generic adapter fields
-
-| Field | Description |
-|---|---|
-| `command` | The CLI binary name |
-| `args` | Fixed args for headless invocation |
-| `stdin_mode` | Set to `prompt` to send the prompt via stdin |
-| `health_check` | Command to verify installation |
-| `arg_map` | Maps harnessctl flags to agent flags (e.g. `model: "--llm"`) |
-
-## Writing a dedicated adapter
+## Writing a new adapter
 
 Create `src/adapters/<agent>.ts`:
 

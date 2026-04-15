@@ -3,19 +3,20 @@ import { spawnSync } from "node:child_process";
 import { claudeAdapter } from "./claude.ts";
 import { codexAdapter } from "./codex.ts";
 import { opencodeAdapter } from "./opencode.ts";
-import { createGenericAdapter } from "./generic.ts";
-
 const builtinAdapters: Record<string, Adapter> = {
   claude: claudeAdapter,
   codex: codexAdapter,
   opencode: opencodeAdapter,
 };
 
-export function getAdapter(name: string, config: AgentConfig): Adapter {
-  if (config.adapter === "generic") {
-    return createGenericAdapter(name, config);
+export function getAdapter(name: string, _config: AgentConfig): Adapter {
+  const adapter = builtinAdapters[name];
+  if (!adapter) {
+    throw new Error(
+      `Unknown agent "${name}". Supported agents: ${Object.keys(builtinAdapters).join(", ")}`,
+    );
   }
-  return builtinAdapters[name] ?? createGenericAdapter(name, config);
+  return adapter;
 }
 
 export function listAdapterNames(): string[] {
@@ -33,7 +34,14 @@ export function checkAuth(adapter: Adapter): AuthCheckResult {
   });
 
   if (result.error) {
-    return { ok: false, message: `auth check failed: ${result.error.message}` };
+    const err = result.error as NodeJS.ErrnoException;
+    if (err.code === "ENOENT") {
+      return {
+        ok: false,
+        message: `${adapter.name} not installed — "${check.cmd}" not found in PATH`,
+      };
+    }
+    return { ok: false, message: `auth check failed: ${err.message}` };
   }
 
   return check.parse(
