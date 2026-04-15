@@ -69,7 +69,7 @@ jobs:
           git add package.json
           git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}"
           git tag "v${{ steps.bump.outputs.version }}"
-          git push --follow-tags
+          git push origin main --follow-tags
 
   build:
     needs: version-and-tag
@@ -94,7 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "v${{ needs.version-and-tag.outputs.new_version }}"
+          ref: main
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -146,7 +146,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "v${{ needs.version-and-tag.outputs.new_version }}"
+          ref: main
 
       - uses: oven-sh/setup-bun@v2
         with:

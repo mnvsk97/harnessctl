@@ -207,12 +207,13 @@ jobs:
 
       # We can't test actual agent invocation in CI (no API keys),
       # but we can verify the CLI accepts piped input without errors
-      # by using a nonexistent agent that will fail at spawn (not at arg parsing)
+      # by using a nonexistent agent that will fail at auth check (not at arg parsing)
       - name: Piped stdin is accepted
         run: |
-          echo "some context" | bun run src/cli.ts run --agent claude "test" 2>&1 || true
-          # Verify the prompt was constructed (check the harnessctl log line appears)
-          echo "some context" | bun run src/cli.ts run --agent claude "test" 2>&1 | grep "\[harnessctl\] agent=claude"
+          # Verify piped input doesn't cause a crash — auth check fails gracefully
+          OUTPUT=$(echo "some context" | bun run src/cli.ts run --agent claude "test" 2>&1 || true)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep "\[harnessctl\]"
 
   # ── Install script syntax check ─────────────────────────
   install-scripts:
