@@ -9,6 +9,7 @@ Universal CLI wrapper for coding agents (Claude Code, Codex, OpenCode).
 
 ## Commands
 ```
+bun run src/cli.ts setup
 bun run src/cli.ts run [--agent <name>] [--resume] <prompt> [-- <extra-args>...]
 bun run src/cli.ts shell [--agent <name>] [-- <extra-args>...]
 bun run src/cli.ts list
@@ -23,7 +24,7 @@ bun run src/cli.ts config get|set
 - `src/session.ts` — session IDs + summaries per agent per cwd
 - `src/log.ts` — run logs as JSON to `~/.harnessctl/runs/`
 - `src/adapters/` — per-agent adapters (claude, codex, opencode)
-- `src/commands/` — run, shell, list, doctor, config
+- `src/commands/` — setup, run, shell, list, doctor, config
 
 ## Key decisions
 - Adapter code owns invocation flags; YAML is for user preferences only

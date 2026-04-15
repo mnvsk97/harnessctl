@@ -5,10 +5,12 @@ import { listCommand } from "./commands/list.ts";
 import { doctorCommand } from "./commands/doctor.ts";
 import { configCommand } from "./commands/config.ts";
 import { shellCommand } from "./commands/shell.ts";
+import { setupCommand } from "./commands/setup.ts";
 
 const USAGE = `harnessctl — universal coding agent CLI
 
 Usage:
+  harnessctl setup
   harnessctl run [--agent <name>] [--resume] <prompt> [-- <extra-args>...]
   harnessctl shell [--agent <name>] [-- <extra-args>...]
   harnessctl list
@@ -122,6 +124,10 @@ async function main() {
 
     case "doctor":
       doctorCommand();
+      break;
+
+    case "setup":
+      await setupCommand();
       break;
 
     case "config":
