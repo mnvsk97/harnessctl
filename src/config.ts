@@ -21,19 +21,16 @@ const DEFAULT_CONFIG: GlobalConfig = {
 
 const DEFAULT_AGENTS: Record<string, AgentConfig> = {
   claude: {
-    model: "claude-sonnet-4-6",
     env: {},
     timeout: 300,
     extra_args: [],
   },
   codex: {
-    model: "o4-mini",
     env: {},
     timeout: 300,
     extra_args: [],
   },
   opencode: {
-    model: "default",
     env: {},
     timeout: 300,
     extra_args: [],
