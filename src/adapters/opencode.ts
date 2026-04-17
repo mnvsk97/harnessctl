@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import { homedir } from "node:os";
 import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
 
 export const opencodeAdapter: Adapter = {
@@ -43,6 +45,40 @@ export const opencodeAdapter: Adapter = {
     }
 
     return result;
+  },
+
+  async postRun(_cwd: string, result: RunResult, startedAt: number): Promise<Partial<RunResult>> {
+    const dbPath = `${homedir()}/.local/share/opencode/opencode.db`;
+    try {
+      // Filter to sessions updated after this run started. OpenCode may store
+      // updated_at as Unix milliseconds (JS) or seconds; handle both by
+      // matching either scale. Modern Unix seconds are ~1.7e9, so values
+      // >= 2e9 are milliseconds.
+      const startMs = startedAt;
+      const startSec = Math.floor(startedAt / 1000);
+      const sql =
+        "SELECT id, cost, prompt_tokens, completion_tokens FROM sessions " +
+        `WHERE (updated_at >= ${startMs}) ` +
+        `   OR (updated_at >= ${startSec} AND updated_at < 2000000000) ` +
+        "ORDER BY updated_at DESC LIMIT 1";
+
+      const proc = spawnSync("sqlite3", [dbPath, "-json", sql], { encoding: "utf8" });
+      if (proc.status !== 0 || !proc.stdout?.trim()) return {};
+
+      const rows: Array<{ id: string; cost: string | null; prompt_tokens: string; completion_tokens: string }> =
+        JSON.parse(proc.stdout.trim());
+      if (!Array.isArray(rows) || rows.length === 0) return {};
+      const row = rows[0];
+
+      const enriched: Partial<RunResult> = {};
+      if (!result.sessionId && row.id) enriched.sessionId = row.id;
+      const cost = row.cost != null ? Number(row.cost) : null;
+      if (cost != null && !Number.isNaN(cost)) enriched.cost = cost;
+      const inputTok = Number(row.prompt_tokens);
+      const outputTok = Number(row.completion_tokens);
+      if (inputTok > 0 || outputTok > 0) enriched.tokens = { input: inputTok, output: outputTok };
+      return enriched;
+    } catch { return {}; }
   },
 
   healthCheck() {
