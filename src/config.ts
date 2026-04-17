@@ -36,6 +36,11 @@ const DEFAULT_AGENTS: Record<string, AgentConfig> = {
     timeout: 300,
     extra_args: [],
   },
+  gemini: {
+    env: {},
+    timeout: 300,
+    extra_args: [],
+  },
 };
 
 export function ensureInit(): void {
