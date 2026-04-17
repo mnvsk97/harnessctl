@@ -1,0 +1,128 @@
+# harnessctl GitHub Actions workflow — 2026
+#
+# Ready-to-use workflow that runs a harnessctl agent on every pull request.
+# The agent reviews the PR and suggests improvements, then the run log is
+# uploaded as an artifact for later inspection.
+#
+# Usage:
+#   1. Copy this file to .github/workflows/harnessctl.yml in your repo.
+#   2. Add the relevant API key secret(s) to your repository
+#      (Settings → Secrets → Actions).
+#   3. Choose your agent by setting HARNESSCTL_AGENT (default: claude).
+
+name: harnessctl agent review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  harnessctl:
+    name: Agent review
+    runs-on: ubuntu-latest
+
+    # Limit to one concurrent run per PR branch; cancel outdated runs.
+    concurrency:
+      group: harnessctl-${{ github.head_ref }}
+      cancel-in-progress: true
+
+    steps:
+      # ── 1. Check out the PR branch ──────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history so the agent can see the whole diff.
+          fetch-depth: 0
+
+      # ── 2. Install Node (harnessctl is published to npm) ────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ── 3. Install harnessctl ───────────────────────────────────────────────
+      - name: Install harnessctl
+        run: npm install -g harnessctl
+
+      # ── 4. Verify the installation ──────────────────────────────────────────
+      - name: Smoke-test installation
+        run: harnessctl --help
+
+      # ── 5. Configure the agent ─────────────────────────────────────────────
+      #
+      # Option A (env var) — set HARNESSCTL_AGENT in your workflow or repo vars.
+      # Option B (config)  — write a .harnessctl/config.yaml in the repo root.
+      #
+      # Example .harnessctl/config.yaml:
+      #   default_agent: claude
+      #
+      - name: Configure default agent
+        env:
+          # Change to: codex, opencode, or cursor to switch agents.
+          HARNESSCTL_AGENT: ${{ vars.HARNESSCTL_AGENT || 'claude' }}
+        run: harnessctl config set default "$HARNESSCTL_AGENT"
+
+      # ── 6. Inject the API key for the chosen agent ──────────────────────────
+      #
+      # Add whichever secret(s) match the agent(s) you use:
+      #   • claude    → ANTHROPIC_API_KEY
+      #   • codex     → OPENAI_API_KEY
+      #   • opencode  → OPENAI_API_KEY  (or ANTHROPIC_API_KEY)
+      #   • cursor    → CURSOR_API_KEY
+      #
+      # The secrets below are all optional — only the one(s) you add will be
+      # forwarded; GitHub replaces undefined secrets with an empty string.
+      - name: Set agent API key
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            harnessctl config set-env claude ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"
+          fi
+          if [ -n "$OPENAI_API_KEY" ]; then
+            harnessctl config set-env codex    OPENAI_API_KEY "$OPENAI_API_KEY"
+            harnessctl config set-env opencode OPENAI_API_KEY "$OPENAI_API_KEY"
+          fi
+          if [ -n "$CURSOR_API_KEY" ]; then
+            harnessctl config set-env cursor CURSOR_API_KEY "$CURSOR_API_KEY"
+          fi
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
+          CURSOR_API_KEY:    ${{ secrets.CURSOR_API_KEY }}
+
+      # ── 7. Run the agent ────────────────────────────────────────────────────
+      #
+      # The prompt is passed as-is; append `-- <agent-flags>` for agent-specific
+      # options such as --max-turns (claude) or --model (all agents).
+      #
+      # Claude example with extra flags:
+      #   harnessctl run "review this PR and suggest improvements" \
+      #     -- --max-turns 10 --model claude-opus-4-5
+      #
+      # Codex example:
+      #   harnessctl run --agent codex "review this PR and suggest improvements" \
+      #     -- --model o4-mini
+      #
+      - name: Run agent review
+        run: |
+          harnessctl run \
+            "review this PR and suggest improvements" \
+            -- --max-turns 10
+        env:
+          # Make all API keys available to the subprocess as well, so adapters
+          # that read environment variables directly can find them.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
+          CURSOR_API_KEY:    ${{ secrets.CURSOR_API_KEY }}
+
+      # ── 8. Upload the run log as an artifact ────────────────────────────────
+      #
+      # Run logs are written to ~/.harnessctl/runs/ as JSON files.
+      # They include: agent, prompt, exit code, cost, tokens, duration.
+      - name: Upload run log
+        if: always()   # upload even when the agent step fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: harnessctl-run-log-${{ github.run_id }}
+          path: ~/.harnessctl/runs/
+          if-no-files-found: warn
+          retention-days: 30
