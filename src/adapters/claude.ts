@@ -49,7 +49,7 @@ export const claudeAdapter: Adapter = {
     return result;
   },
 
-  async postRun(_cwd: string, result: RunResult): Promise<Partial<RunResult>> {
+  async postRun(_cwd: string, result: RunResult, _startedAt: number): Promise<Partial<RunResult>> {
     if (!result.sessionId) return {};
     const projectsDir = `${homedir()}/.claude/projects`;
     let projectDirs: string[];

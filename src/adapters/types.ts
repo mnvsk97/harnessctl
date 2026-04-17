@@ -40,8 +40,10 @@ export interface Adapter {
    * SQLite DB, etc.) to fill in data not available from stdout — e.g. cache
    * token counts (Claude), token totals (Codex), session ID + cost (OpenCode).
    * Called after the process exits; must never throw.
+   * startedAt is Date.now() captured just before spawn — use it to correlate
+   * agent-written files to this specific invocation.
    */
-  postRun?(cwd: string, result: RunResult): Promise<Partial<RunResult>>;
+  postRun?(cwd: string, result: RunResult, startedAt: number): Promise<Partial<RunResult>>;
   /** Command to check if the agent is installed */
   healthCheck(): { cmd: string; args: string[] };
   /** Check if authentication is configured and valid */

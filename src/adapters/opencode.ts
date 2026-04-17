@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
 
@@ -46,33 +47,37 @@ export const opencodeAdapter: Adapter = {
     return result;
   },
 
-  async postRun(_cwd: string, result: RunResult): Promise<Partial<RunResult>> {
+  async postRun(_cwd: string, result: RunResult, startedAt: number): Promise<Partial<RunResult>> {
     const dbPath = `${homedir()}/.local/share/opencode/opencode.db`;
     try {
-      const { Database } = await import("bun:sqlite");
-      const db = new Database(dbPath, { readonly: true });
-      try {
-        type SessionRow = {
-          id: string;
-          cost: number | null;
-          prompt_tokens: number;
-          completion_tokens: number;
-        };
-        const row = db.prepare<SessionRow, []>(
-          "SELECT id, cost, prompt_tokens, completion_tokens FROM sessions ORDER BY updated_at DESC LIMIT 1",
-        ).get();
-        if (!row) return {};
+      // Filter to sessions updated after this run started. OpenCode may store
+      // updated_at as Unix milliseconds (JS) or seconds; handle both by
+      // matching either scale. Modern Unix seconds are ~1.7e9, so values
+      // >= 2e9 are milliseconds.
+      const startMs = startedAt;
+      const startSec = Math.floor(startedAt / 1000);
+      const sql =
+        "SELECT id, cost, prompt_tokens, completion_tokens FROM sessions " +
+        `WHERE (updated_at >= ${startMs}) ` +
+        `   OR (updated_at >= ${startSec} AND updated_at < 2000000000) ` +
+        "ORDER BY updated_at DESC LIMIT 1";
 
-        const enriched: Partial<RunResult> = {};
-        if (!result.sessionId && row.id) enriched.sessionId = row.id;
-        if (row.cost != null) enriched.cost = row.cost;
-        if (row.prompt_tokens > 0 || row.completion_tokens > 0) {
-          enriched.tokens = { input: row.prompt_tokens, output: row.completion_tokens };
-        }
-        return enriched;
-      } finally {
-        db.close();
-      }
+      const proc = spawnSync("sqlite3", [dbPath, "-json", sql], { encoding: "utf8" });
+      if (proc.status !== 0 || !proc.stdout?.trim()) return {};
+
+      const rows: Array<{ id: string; cost: string | null; prompt_tokens: string; completion_tokens: string }> =
+        JSON.parse(proc.stdout.trim());
+      if (!Array.isArray(rows) || rows.length === 0) return {};
+      const row = rows[0];
+
+      const enriched: Partial<RunResult> = {};
+      if (!result.sessionId && row.id) enriched.sessionId = row.id;
+      const cost = row.cost != null ? Number(row.cost) : null;
+      if (cost != null && !Number.isNaN(cost)) enriched.cost = cost;
+      const inputTok = Number(row.prompt_tokens);
+      const outputTok = Number(row.completion_tokens);
+      if (inputTok > 0 || outputTok > 0) enriched.tokens = { input: inputTok, output: outputTok };
+      return enriched;
     } catch { return {}; }
   },
 

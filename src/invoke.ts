@@ -68,7 +68,7 @@ export function invoke(
       };
       if (adapter.postRun) {
         try {
-          const enriched = await adapter.postRun(intent.cwd, base);
+          const enriched = await adapter.postRun(intent.cwd, base, start);
           if (enriched.sessionId != null) base.sessionId = enriched.sessionId;
           if (enriched.cost != null) base.cost = enriched.cost;
           if (enriched.tokens != null) base.tokens = enriched.tokens;

@@ -47,8 +47,9 @@ export const codexAdapter: Adapter = {
     return result;
   },
 
-  async postRun(_cwd: string, result: RunResult): Promise<Partial<RunResult>> {
+  async postRun(_cwd: string, result: RunResult, startedAt: number): Promise<Partial<RunResult>> {
     // Find the most recently modified rollout-*.jsonl under ~/.codex/sessions/
+    // that was written during this run to avoid picking up a concurrent session.
     const sessionsBase = `${homedir()}/.codex/sessions`;
     let newest: { path: string; mtime: number } | null = null;
 
@@ -68,7 +69,8 @@ export const codexAdapter: Adapter = {
       }
     };
     walkDir(sessionsBase);
-    if (!newest) return {};
+    // Reject files that predate this run — they belong to a previous invocation
+    if (!newest || newest.mtime < startedAt) return {};
 
     let content: string;
     try { content = readFileSync(newest.path, "utf8"); } catch { return {}; }
