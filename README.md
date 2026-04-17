@@ -453,12 +453,7 @@ Both run in CI on every push and PR.
 - `--cheapest` / `--fastest` flags — pick the best agent based on historical stats from run logs
 - Agent scoring derived from logged cost, latency, and exit codes
 
-### v0.4 — SDKs
-
-- **TypeScript SDK** — `npm install harnessctl`. Import and invoke agents from Node/Bun/Deno. Full type safety over `InvokeIntent` and `RunResult`.
-- **Python SDK** — `pip install harnessctl`. Invoke agents programmatically from scripts, notebooks, and CI pipelines.
-
-### v0.5 — CI & platform integrations
+### v0.4 — CI & platform integrations
 
 - **GitHub Actions workflow** — ready-made YAML for running harnessctl in CI. Pick an agent per job, structured logs as artifacts, fail on non-zero exit.
 - **Parallel execution** — send the same task to multiple agents simultaneously, compare results, surface the best output
@@ -470,6 +465,7 @@ harnessctl is plumbing, not a platform. These are explicitly out:
 - Model routing (that's [OpenCode](https://github.com/opencode-ai/opencode))
 - Agent orchestration
 - Agent frameworks (LangChain, CrewAI, etc.)
+- Programmatic SDK — shell out to the `harnessctl` CLI from your code instead
 
 ## License
 
