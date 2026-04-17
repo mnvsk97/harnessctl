@@ -12,7 +12,7 @@ export interface RunResult {
   summary: string;
   sessionId?: string;
   cost?: number;
-  tokens?: { input: number; output: number };
+  tokens?: { input: number; output: number; cacheWrite?: number; cacheRead?: number };
   duration: number;
 }
 
@@ -35,6 +35,13 @@ export interface Adapter {
   argMap: ArgMap;
   /** Parse captured output into structured result */
   parseOutput(stdout: string, stderr: string): Partial<RunResult>;
+  /**
+   * Optional post-run enrichment: read agent-written files (session JSONL,
+   * SQLite DB, etc.) to fill in data not available from stdout — e.g. cache
+   * token counts (Claude), token totals (Codex), session ID + cost (OpenCode).
+   * Called after the process exits; must never throw.
+   */
+  postRun?(cwd: string, result: RunResult): Promise<Partial<RunResult>>;
   /** Command to check if the agent is installed */
   healthCheck(): { cmd: string; args: string[] };
   /** Check if authentication is configured and valid */

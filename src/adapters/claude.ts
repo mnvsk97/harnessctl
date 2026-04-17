@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
 
 export const claudeAdapter: Adapter = {
@@ -45,6 +47,52 @@ export const claudeAdapter: Adapter = {
     }
 
     return result;
+  },
+
+  async postRun(_cwd: string, result: RunResult): Promise<Partial<RunResult>> {
+    if (!result.sessionId) return {};
+    const projectsDir = `${homedir()}/.claude/projects`;
+    let projectDirs: string[];
+    try {
+      projectDirs = readdirSync(projectsDir, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name);
+    } catch { return {}; }
+
+    for (const dir of projectDirs) {
+      const sessionPath = `${projectsDir}/${dir}/${result.sessionId}.jsonl`;
+      let content: string;
+      try { content = readFileSync(sessionPath, "utf8"); } catch { continue; }
+
+      // Sum cache tokens across all assistant turns
+      let cacheWrite = 0;
+      let cacheRead = 0;
+      for (const line of content.split("\n")) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          // Usage lives at msg.message.usage (API response wrapper) or msg.usage
+          const u = msg.message?.usage ?? msg.usage;
+          if (u) {
+            cacheWrite += u.cache_creation_input_tokens ?? 0;
+            cacheRead  += u.cache_read_input_tokens ?? 0;
+          }
+        } catch {}
+      }
+
+      if (cacheWrite > 0 || cacheRead > 0) {
+        return {
+          tokens: {
+            input:  result.tokens?.input  ?? 0,
+            output: result.tokens?.output ?? 0,
+            cacheWrite,
+            cacheRead,
+          },
+        };
+      }
+      return {}; // found the file but no cache tokens — done
+    }
+    return {};
   },
 
   healthCheck() {

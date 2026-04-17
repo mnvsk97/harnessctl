@@ -54,18 +54,30 @@ export function invoke(
       }, 5000);
     }, timeout * 1000);
 
-    child.on("close", (code) => {
+    child.on("close", async (code) => {
       clearTimeout(timer);
       const duration = (Date.now() - start) / 1000;
       const parsed = adapter.parseOutput(stdoutBuf, stderrBuf);
-      resolve({
+      const base: RunResult = {
         exitCode: code,
         summary: parsed.summary ?? "",
         sessionId: parsed.sessionId,
         cost: parsed.cost,
         tokens: parsed.tokens,
         duration,
-      });
+      };
+      if (adapter.postRun) {
+        try {
+          const enriched = await adapter.postRun(intent.cwd, base);
+          if (enriched.sessionId != null) base.sessionId = enriched.sessionId;
+          if (enriched.cost != null) base.cost = enriched.cost;
+          if (enriched.tokens != null) base.tokens = enriched.tokens;
+          if (enriched.summary != null) base.summary = enriched.summary;
+        } catch {
+          // postRun is best-effort; never fail the run
+        }
+      }
+      resolve(base);
     });
 
     child.on("error", (err: NodeJS.ErrnoException) => {

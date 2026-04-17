@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
 
 export const codexAdapter: Adapter = {
@@ -43,6 +45,55 @@ export const codexAdapter: Adapter = {
     }
 
     return result;
+  },
+
+  async postRun(_cwd: string, result: RunResult): Promise<Partial<RunResult>> {
+    // Find the most recently modified rollout-*.jsonl under ~/.codex/sessions/
+    const sessionsBase = `${homedir()}/.codex/sessions`;
+    let newest: { path: string; mtime: number } | null = null;
+
+    const walkDir = (dir: string) => {
+      let entries: ReturnType<typeof readdirSync>;
+      try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const entry of entries) {
+        const full = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          walkDir(full);
+        } else if (entry.name.startsWith("rollout-") && entry.name.endsWith(".jsonl")) {
+          try {
+            const mtime = statSync(full).mtimeMs;
+            if (!newest || mtime > newest.mtime) newest = { path: full, mtime };
+          } catch {}
+        }
+      }
+    };
+    walkDir(sessionsBase);
+    if (!newest) return {};
+
+    let content: string;
+    try { content = readFileSync(newest.path, "utf8"); } catch { return {}; }
+
+    // The last token_count event holds cumulative totals for the session
+    let lastTokens: { input: number; output: number } | null = null;
+    for (const line of content.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const event = JSON.parse(line);
+        const payload = event.event_msg?.payload ?? event.payload;
+        if (payload?.type === "token_count") {
+          lastTokens = {
+            input:  payload.input_tokens  ?? payload.input  ?? 0,
+            output: payload.output_tokens ?? payload.output ?? 0,
+          };
+        }
+      } catch {}
+    }
+
+    if (lastTokens && (lastTokens.input > 0 || lastTokens.output > 0)) {
+      // Only override if stdout didn't already give us token data
+      if (!result.tokens) return { tokens: lastTokens };
+    }
+    return {};
   },
 
   healthCheck() {

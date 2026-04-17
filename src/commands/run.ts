@@ -80,7 +80,12 @@ async function invokeAgent(
   // Print result footer
   rule();
   const stats: string[] = [];
-  if (result.tokens) stats.push(`tokens: ${result.tokens.input}in/${result.tokens.output}out`);
+  if (result.tokens) {
+    let tok = `tokens: ${result.tokens.input}in/${result.tokens.output}out`;
+    if (result.tokens.cacheWrite) tok += `/${result.tokens.cacheWrite}cw`;
+    if (result.tokens.cacheRead)  tok += `/${result.tokens.cacheRead}cr`;
+    stats.push(tok);
+  }
   if (result.cost != null) stats.push(`cost: $${result.cost.toFixed(4)}`);
   stats.push(`duration: ${result.duration.toFixed(1)}s`);
   const icon = result.exitCode === 0 ? c.green("✓") : c.red("✗");

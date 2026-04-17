@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
 
 export const opencodeAdapter: Adapter = {
@@ -43,6 +44,36 @@ export const opencodeAdapter: Adapter = {
     }
 
     return result;
+  },
+
+  async postRun(_cwd: string, result: RunResult): Promise<Partial<RunResult>> {
+    const dbPath = `${homedir()}/.local/share/opencode/opencode.db`;
+    try {
+      const { Database } = await import("bun:sqlite");
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        type SessionRow = {
+          id: string;
+          cost: number | null;
+          prompt_tokens: number;
+          completion_tokens: number;
+        };
+        const row = db.prepare<SessionRow, []>(
+          "SELECT id, cost, prompt_tokens, completion_tokens FROM sessions ORDER BY updated_at DESC LIMIT 1",
+        ).get();
+        if (!row) return {};
+
+        const enriched: Partial<RunResult> = {};
+        if (!result.sessionId && row.id) enriched.sessionId = row.id;
+        if (row.cost != null) enriched.cost = row.cost;
+        if (row.prompt_tokens > 0 || row.completion_tokens > 0) {
+          enriched.tokens = { input: row.prompt_tokens, output: row.completion_tokens };
+        }
+        return enriched;
+      } finally {
+        db.close();
+      }
+    } catch { return {}; }
   },
 
   healthCheck() {
