@@ -17,6 +17,7 @@ const interactiveBase: Record<string, { cmd: string; args: string[] }> = {
   codex:    { cmd: "codex", args: [] },
   opencode: { cmd: "opencode", args: [] },
   gemini:   { cmd: "gemini", args: [] },
+  cursor:   { cmd: "cursor-agent", args: [] },
 };
 
 /** Launch an interactive shell for a single agent. Returns the exit code. */

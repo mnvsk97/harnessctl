@@ -9,7 +9,7 @@ mock.module("../config.ts", () => ({
   loadConfig: () => ({ default_agent: "claude" }),
   loadAgentConfig: () => ({}),
   resolveEnv: (env: Record<string, string>) => env,
-  isKnownAgent: (name: string) => ["claude"].includes(name),
+  isKnownAgent: (name: string) => ["claude", "codex", "opencode", "cursor"].includes(name),
 }));
 
 mock.module("../adapters/registry.ts", () => ({

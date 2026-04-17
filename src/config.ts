@@ -41,6 +41,11 @@ const DEFAULT_AGENTS: Record<string, AgentConfig> = {
     timeout: 300,
     extra_args: [],
   },
+  cursor: {
+    env: {},
+    timeout: 300,
+    extra_args: [],
+  },
 };
 
 export function ensureInit(): void {

@@ -25,6 +25,7 @@ Every coding agent ships its own CLI with different flags, output formats, and s
 | Claude Code | `claude` | Built-in adapter |
 | Codex | `codex` | Built-in adapter |
 | OpenCode | `opencode` | Built-in adapter |
+| Cursor | `cursor-agent` | Built-in adapter |
 | Any CLI agent | configurable | Generic adapter via YAML `cmd`/`args` |
 
 ## Install
@@ -150,6 +151,7 @@ Config: default_agent=claude
   claude: ✓ 2.1.92 (Claude Code) | auth: ✓ authenticated (third_party, bedrock)
   codex: ✓ codex-cli 0.120.0 | auth: ✓ authenticated (ChatGPT)
   opencode: ✓ 1.0.164 | auth: ✓ authenticated (3 env vars)
+  cursor: ✓ cursor-agent 1.0.0 | auth: ✓ authenticated
 
 All agents healthy.
 ```
@@ -233,6 +235,7 @@ Each adapter uses a lightweight CLI command to verify auth:
 | Claude Code | `claude auth status` | OAuth, API key, or third-party (Bedrock/Vertex) |
 | Codex | `codex login status` | ChatGPT login or API key |
 | OpenCode | `opencode auth list` | Stored credentials or env vars (e.g. AWS keys) |
+| Cursor | `cursor-agent status` | Browser login or API key (`CURSOR_API_KEY`) |
 | Generic | skipped | No auth check for custom agents |
 
 Auth is also shown in `harnessctl doctor` output alongside version info.
@@ -353,6 +356,7 @@ const builtinAdapters: Record<string, Adapter> = {
   claude: claudeAdapter,
   codex: codexAdapter,
   opencode: opencodeAdapter,
+  cursor: cursorAdapter,
   myagent: myAgentAdapter,  // add here
 };
 ```
