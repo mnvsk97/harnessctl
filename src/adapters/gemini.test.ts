@@ -19,139 +19,142 @@ function buildArgs(intent: Partial<InvokeIntent> & { prompt: string }) {
 // ── parseOutput ───────────────────────────────────────────
 
 describe("gemini parseOutput", () => {
-  test("extracts summary from JSON result event", () => {
-    const stdout = JSON.stringify({ type: "result", result: "All tests pass." });
-    const out = geminiAdapter.parseOutput(stdout, "");
-    expect(out.summary).toBe("All tests pass.");
+  test("concatenates assistant message deltas into summary", () => {
+    const lines = [
+      JSON.stringify({ type: "init", session_id: "sess-abc", model: "gemini-2.5-flash" }),
+      JSON.stringify({ type: "message", role: "user", content: "fix the bug" }),
+      JSON.stringify({ type: "message", role: "assistant", content: "I'll fix ", delta: true }),
+      JSON.stringify({ type: "message", role: "assistant", content: "the bug now.", delta: true }),
+      JSON.stringify({ type: "result", status: "success", stats: { input_tokens: 50, output_tokens: 20 } }),
+    ].join("\n");
+
+    const out = geminiAdapter.parseOutput(lines, "");
+    expect(out.summary).toBe("I'll fix the bug now.");
+    expect(out.sessionId).toBe("sess-abc");
+    expect(out.tokens).toEqual({ input: 50, output: 20 });
   });
 
-  test("extracts summary from JSON done event", () => {
-    const stdout = JSON.stringify({ type: "done", message: "Done." });
+  test("extracts session_id from init event", () => {
+    const stdout = JSON.stringify({ type: "init", session_id: "my-session-id", model: "gemini-2.5-pro" });
     const out = geminiAdapter.parseOutput(stdout, "");
+    expect(out.sessionId).toBe("my-session-id");
+  });
+
+  test("extracts token counts from result stats", () => {
+    const lines = [
+      JSON.stringify({ type: "message", role: "assistant", content: "done", delta: true }),
+      JSON.stringify({ type: "result", status: "success", stats: { input_tokens: 100, output_tokens: 40, total_tokens: 140 } }),
+    ].join("\n");
+    const out = geminiAdapter.parseOutput(lines, "");
+    expect(out.tokens).toEqual({ input: 100, output: 40 });
+  });
+
+  test("ignores user message content", () => {
+    const lines = [
+      JSON.stringify({ type: "message", role: "user", content: "this is the prompt" }),
+      JSON.stringify({ type: "message", role: "assistant", content: "response text", delta: true }),
+    ].join("\n");
+    const out = geminiAdapter.parseOutput(lines, "");
+    expect(out.summary).toBe("response text");
+  });
+
+  test("ignores tool_use and tool_result events", () => {
+    const lines = [
+      JSON.stringify({ type: "tool_use", tool: "shell", input: "ls" }),
+      JSON.stringify({ type: "tool_result", output: "file1.txt" }),
+      JSON.stringify({ type: "message", role: "assistant", content: "Done.", delta: true }),
+    ].join("\n");
+    const out = geminiAdapter.parseOutput(lines, "");
     expect(out.summary).toBe("Done.");
   });
 
-  test("extracts summary from JSON response event", () => {
-    const stdout = JSON.stringify({ type: "response", text: "Here is the answer." });
-    const out = geminiAdapter.parseOutput(stdout, "");
-    expect(out.summary).toBe("Here is the answer.");
-  });
-
-  test("falls back to last plain-text line when no JSON event matches", () => {
+  test("falls back to last plain-text line when no assistant messages", () => {
     const stdout = "Thinking...\nWorking on it...\nDone, files updated.";
     const out = geminiAdapter.parseOutput(stdout, "");
     expect(out.summary).toBe("Done, files updated.");
   });
 
-  test("skips JSON lines when scanning for plain-text fallback", () => {
-    const stdout = [
+  test("falls back to last non-JSON line when no assistant messages in mixed output", () => {
+    const lines = [
       "Some streamed text",
       JSON.stringify({ type: "tool_use", tool: "bash" }),
       "Final plain line",
-      JSON.stringify({ type: "tool_end" }),
+      JSON.stringify({ type: "result", status: "success", stats: { input_tokens: 10, output_tokens: 5 } }),
     ].join("\n");
-    const out = geminiAdapter.parseOutput(stdout, "");
+    const out = geminiAdapter.parseOutput(lines, "");
     expect(out.summary).toBe("Final plain line");
   });
 
-  test("parses token usage from result event (usage field)", () => {
-    const stdout = JSON.stringify({
-      type: "result",
-      result: "ok",
-      usage: { input_tokens: 100, output_tokens: 50 },
-    });
-    const out = geminiAdapter.parseOutput(stdout, "");
-    expect(out.tokens).toEqual({ input: 100, output: 50 });
-  });
-
-  test("parses token usage from usageMetadata (Gemini API style)", () => {
-    const stdout = JSON.stringify({
-      type: "result",
-      result: "ok",
-      usageMetadata: { promptTokenCount: 200, candidatesTokenCount: 80 },
-    });
-    const out = geminiAdapter.parseOutput(stdout, "");
-    expect(out.tokens).toEqual({ input: 200, output: 80 });
-  });
-
-  test("returns empty summary for empty output", () => {
+  test("returns no summary for empty output", () => {
     const out = geminiAdapter.parseOutput("", "");
     expect(out.summary).toBeUndefined();
   });
 
-  test("handles multi-line output with result event mid-stream", () => {
-    const stdout = [
-      "Planning...",
-      JSON.stringify({ type: "result", result: "Refactor complete." }),
-      "",
+  test("error result event does not set summary", () => {
+    const lines = [
+      JSON.stringify({ type: "result", status: "error", error: { type: "AuthError", message: "no key" }, stats: { input_tokens: 0, output_tokens: 0 } }),
     ].join("\n");
-    const out = geminiAdapter.parseOutput(stdout, "");
-    expect(out.summary).toBe("Refactor complete.");
+    const out = geminiAdapter.parseOutput(lines, "");
+    // summary should be undefined (no assistant content)
+    expect(out.summary).toBeUndefined();
+    // tokens should still be parsed
+    expect(out.tokens).toEqual({ input: 0, output: 0 });
   });
 });
 
-// ── authCheck.parse ───────────────────────────────────────
+// ── authCheck ─────────────────────────────────────────────
 
-describe("gemini authCheck.parse", () => {
+describe("gemini authCheck", () => {
   const { parse } = geminiAdapter.authCheck();
 
   let savedApiKey: string | undefined;
+  let savedVertexAI: string | undefined;
 
   beforeEach(() => {
     savedApiKey = process.env.GEMINI_API_KEY;
+    savedVertexAI = process.env.GOOGLE_GENAI_USE_VERTEXAI;
     delete process.env.GEMINI_API_KEY;
+    delete process.env.GOOGLE_GENAI_USE_VERTEXAI;
   });
 
   afterEach(() => {
-    if (savedApiKey !== undefined) {
-      process.env.GEMINI_API_KEY = savedApiKey;
-    } else {
-      delete process.env.GEMINI_API_KEY;
-    }
+    if (savedApiKey !== undefined) process.env.GEMINI_API_KEY = savedApiKey;
+    else delete process.env.GEMINI_API_KEY;
+    if (savedVertexAI !== undefined) process.env.GOOGLE_GENAI_USE_VERTEXAI = savedVertexAI;
+    else delete process.env.GOOGLE_GENAI_USE_VERTEXAI;
   });
 
-  test("ok when exit 0 and output contains 'logged in'", () => {
-    const result = parse("You are logged in as user@example.com", "", 0);
-    expect(result.ok).toBe(true);
-    expect(result.method).toBe("oauth");
-    expect(result.message).toContain("authenticated");
-  });
-
-  test("ok when exit 0 and output contains 'authenticated'", () => {
-    const result = parse("authenticated via google account", "", 0);
-    expect(result.ok).toBe(true);
-    expect(result.method).toBe("oauth");
-  });
-
-  test("ok when exit 0 and output contains 'api key'", () => {
-    const result = parse("using api key for authentication", "", 0);
-    expect(result.ok).toBe(true);
-    expect(result.method).toBe("api_key");
-  });
-
-  test("ok when exit 0 with no recognized keyword", () => {
-    const result = parse("status: ok", "", 0);
-    expect(result.ok).toBe(true);
-    expect(result.method).toBeUndefined();
-  });
-
-  test("falls back to GEMINI_API_KEY when exit non-zero", () => {
+  test("ok with GEMINI_API_KEY set", () => {
     process.env.GEMINI_API_KEY = "AIza-test-key";
-    const result = parse("", "", 1);
+    const result = parse("gemini 1.0.0", "", 0);
     expect(result.ok).toBe(true);
     expect(result.method).toBe("api_key");
     expect(result.message).toContain("GEMINI_API_KEY");
   });
 
-  test("not ok when exit non-zero and no GEMINI_API_KEY", () => {
-    const result = parse("", "", 1);
-    expect(result.ok).toBe(false);
-    expect(result.message).toContain("gemini auth login");
+  test("ok with GOOGLE_GENAI_USE_VERTEXAI set", () => {
+    process.env.GOOGLE_GENAI_USE_VERTEXAI = "1";
+    const result = parse("gemini 1.0.0", "", 0);
+    expect(result.ok).toBe(true);
+    expect(result.method).toBe("vertex_ai");
   });
 
-  test("not ok when exit null and no GEMINI_API_KEY", () => {
-    const result = parse("", "", null);
+  test("ok when binary runs (OAuth may be in settings.json)", () => {
+    const result = parse("gemini 1.0.0", "", 0);
+    expect(result.ok).toBe(true);
+    expect(result.message).toContain("installed");
+  });
+
+  test("not ok when binary not found (exit non-zero)", () => {
+    const result = parse("", "command not found", 1);
     expect(result.ok).toBe(false);
+    expect(result.message).toContain("npm install");
+  });
+
+  test("authCheck cmd is --version (no auth status subcommand)", () => {
+    const check = geminiAdapter.authCheck();
+    expect(check.cmd).toBe("gemini");
+    expect(check.args).toEqual(["--version"]);
   });
 });
 
@@ -169,34 +172,47 @@ describe("gemini healthCheck", () => {
 
 describe("gemini argMap", () => {
   test("model flag maps to --model <value>", () => {
-    const mapped = geminiAdapter.argMap.model("gemini-2.5-pro");
-    expect(mapped).toEqual(["--model", "gemini-2.5-pro"]);
+    expect(geminiAdapter.argMap.model("gemini-2.5-pro")).toEqual(["--model", "gemini-2.5-pro"]);
   });
 
-  test("resume flag is not supported", () => {
-    expect(geminiAdapter.argMap.resume).toBeUndefined();
+  test("resume flag maps to --resume <value>", () => {
+    expect(geminiAdapter.argMap.resume("latest")).toEqual(["--resume", "latest"]);
+  });
+
+  test("resume flag supports session index", () => {
+    expect(geminiAdapter.argMap.resume("5")).toEqual(["--resume", "5"]);
   });
 });
 
 // ── command building ──────────────────────────────────────
 
 describe("gemini command building", () => {
-  test("base command is gemini --yolo", () => {
-    const built = buildArgs({ prompt: "refactor this" });
+  test("base args include --output-format stream-json and --yolo", () => {
+    const built = buildArgs({ prompt: "do the thing" });
     expect(built.cmd).toBe("gemini");
+    expect(built.args).toContain("--output-format");
+    expect(built.args).toContain("stream-json");
     expect(built.args).toContain("--yolo");
+  });
+
+  test("--output-format stream-json comes before --yolo", () => {
+    const built = buildArgs({ prompt: "go" });
+    const fmtIdx = built.args.indexOf("--output-format");
+    const yoloIdx = built.args.indexOf("--yolo");
+    expect(fmtIdx).toBeLessThan(yoloIdx);
   });
 
   test("model flag is appended when provided", () => {
     const built = buildArgs({ prompt: "go", model: "gemini-2.0-flash" });
-    expect(built.args).toEqual(["--yolo", "--model", "gemini-2.0-flash"]);
+    expect(built.args).toContain("--model");
+    expect(built.args).toContain("gemini-2.0-flash");
   });
 
-  test("resume emits a warning (not supported)", () => {
-    const built = buildArgs({ prompt: "go", resumeId: "sess-abc" });
-    expect(built.warnings).toHaveLength(1);
-    expect(built.warnings[0]).toContain("--resume");
-    expect(built.args).not.toContain("sess-abc");
+  test("resume flag is appended when provided", () => {
+    const built = buildArgs({ prompt: "go", resumeId: "latest" });
+    expect(built.args).toContain("--resume");
+    expect(built.args).toContain("latest");
+    expect(built.warnings).toHaveLength(0);
   });
 
   test("extra args are appended at the end", () => {
