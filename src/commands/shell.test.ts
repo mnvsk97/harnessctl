@@ -35,9 +35,10 @@ mock.module("../config.ts", () => ({
   loadConfig: () => ({ default_agent: "codex" }),
   loadAgentConfig: (name: string) => agentConfigs[name] ?? {},
   resolveEnv: (env: Record<string, string>) => env,
-  isKnownAgent: (name: string) => ["claude", "codex", "opencode"].includes(name),
+  isKnownAgent: (name: string) => ["claude", "codex", "opencode", "cursor"].includes(name),
   HARNESS_DIR: "/tmp/harnessctl-test",
   AGENTS_DIR: "/tmp/harnessctl-test/agents",
+  RUNS_DIR: "/tmp/harnessctl-test/runs",
 }));
 
 // Mock registry — return minimal adapters, controlled auth

@@ -11,6 +11,7 @@ export const AGENTS_DIR = join(HARNESS_DIR, "agents");
 export const SESSIONS_DIR = join(HARNESS_DIR, "sessions");
 export const RUNS_DIR = join(HARNESS_DIR, "runs");
 
+
 export interface GlobalConfig {
   default_agent: string;
   setup_done?: boolean;
@@ -41,6 +42,11 @@ const DEFAULT_AGENTS: Record<string, AgentConfig> = {
     timeout: 300,
     extra_args: [],
   },
+  cursor: {
+    env: {},
+    timeout: 300,
+    extra_args: [],
+  },
 };
 
 export function ensureInit(): void {
@@ -64,11 +70,24 @@ export function ensureInit(): void {
   }
 }
 
+function loadProjectConfig(): Partial<GlobalConfig> | null {
+  const projectConfigPath = join(process.cwd(), ".harnessctl", "config.yaml");
+  if (!existsSync(projectConfigPath)) return null;
+  try {
+    const raw = readFileSync(projectConfigPath, "utf-8");
+    return YAML.parse(raw) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function loadConfig(): GlobalConfig {
   ensureInit();
   try {
     const raw = readFileSync(CONFIG_PATH, "utf-8");
-    return { ...DEFAULT_CONFIG, ...YAML.parse(raw) };
+    const userConfig: GlobalConfig = { ...DEFAULT_CONFIG, ...YAML.parse(raw) };
+    const projectConfig = loadProjectConfig();
+    return projectConfig ? { ...userConfig, ...projectConfig } : userConfig;
   } catch (err: any) {
     console.error(`[harnessctl] failed to load config (${CONFIG_PATH}): ${err.message}`);
     console.error("[harnessctl] tip: check YAML syntax or delete the file to reset");
@@ -83,14 +102,34 @@ export function saveConfig(config: GlobalConfig): void {
 
 export function loadAgentConfig(agent: string): AgentConfig {
   const path = join(AGENTS_DIR, `${agent}.yaml`);
-  if (!existsSync(path)) return {};
+  let userConfig: AgentConfig = {};
+  if (existsSync(path)) {
+    try {
+      const raw = readFileSync(path, "utf-8");
+      userConfig = YAML.parse(raw) ?? {};
+    } catch (err: any) {
+      console.error(`[harnessctl] failed to parse agent config (${path}): ${err.message}`);
+      console.error("[harnessctl] tip: check YAML syntax or delete the file to reset");
+      process.exit(1);
+    }
+  }
+
+  const projectPath = join(process.cwd(), ".harnessctl", "agents", `${agent}.yaml`);
+  if (!existsSync(projectPath)) return userConfig;
   try {
-    const raw = readFileSync(path, "utf-8");
-    return YAML.parse(raw) ?? {};
-  } catch (err: any) {
-    console.error(`[harnessctl] failed to parse agent config (${path}): ${err.message}`);
-    console.error("[harnessctl] tip: check YAML syntax or delete the file to reset");
-    process.exit(1);
+    const raw = readFileSync(projectPath, "utf-8");
+    const projectConfig: AgentConfig = YAML.parse(raw) ?? {};
+    return {
+      ...userConfig,
+      ...projectConfig,
+      extra_args: [
+        ...(userConfig.extra_args ?? []),
+        ...(projectConfig.extra_args ?? []),
+      ],
+      env: { ...(userConfig.env ?? {}), ...(projectConfig.env ?? {}) },
+    };
+  } catch {
+    return userConfig;
   }
 }
 

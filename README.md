@@ -25,6 +25,7 @@ Every coding agent ships its own CLI with different flags, output formats, and s
 | Claude Code | `claude` | Built-in adapter |
 | Codex | `codex` | Built-in adapter |
 | OpenCode | `opencode` | Built-in adapter |
+| Cursor | `cursor-agent` | Built-in adapter |
 | Any CLI agent | configurable | Generic adapter via YAML `cmd`/`args` |
 
 ## Install
@@ -150,6 +151,7 @@ Config: default_agent=claude
   claude: ✓ 2.1.92 (Claude Code) | auth: ✓ authenticated (third_party, bedrock)
   codex: ✓ codex-cli 0.120.0 | auth: ✓ authenticated (ChatGPT)
   opencode: ✓ 1.0.164 | auth: ✓ authenticated (3 env vars)
+  cursor: ✓ cursor-agent 1.0.0 | auth: ✓ authenticated
 
 All agents healthy.
 ```
@@ -233,6 +235,7 @@ Each adapter uses a lightweight CLI command to verify auth:
 | Claude Code | `claude auth status` | OAuth, API key, or third-party (Bedrock/Vertex) |
 | Codex | `codex login status` | ChatGPT login or API key |
 | OpenCode | `opencode auth list` | Stored credentials or env vars (e.g. AWS keys) |
+| Cursor | `cursor-agent status` | Browser login or API key (`CURSOR_API_KEY`) |
 | Generic | skipped | No auth check for custom agents |
 
 Auth is also shown in `harnessctl doctor` output alongside version info.
@@ -353,6 +356,7 @@ const builtinAdapters: Record<string, Adapter> = {
   claude: claudeAdapter,
   codex: codexAdapter,
   opencode: opencodeAdapter,
+  cursor: cursorAdapter,
   myagent: myAgentAdapter,  // add here
 };
 ```
@@ -438,18 +442,26 @@ Both run in CI on every push and PR.
 
 ## Roadmap
 
-### Coming soon
+### v0.2 — Observability & project config
 
-- **Python SDK** — `pip install harnessctl`. Invoke agents programmatically from Python scripts, notebooks, and CI pipelines. Same adapter model, same arg mapping.
+- `harnessctl stats` — aggregate run logs across agents; compare cost, speed, and success rate per agent
+- `harnessctl logs` — browse and filter recent run logs from the CLI
+- Project-level config (`.harnessctl/config.yaml` in repo root) for team-shared agent preferences, merged with user config
+
+### v0.3 — Smart agent selection
+
+- `--cheapest` / `--fastest` flags — pick the best agent based on historical stats from run logs
+- Agent scoring derived from logged cost, latency, and exit codes
+
+### v0.4 — SDKs
+
 - **TypeScript SDK** — `npm install harnessctl`. Import and invoke agents from Node/Bun/Deno. Full type safety over `InvokeIntent` and `RunResult`.
-- **GitHub Actions workflow** — ready-made YAML for running harnessctl in CI. Pick an agent per job, get structured logs as artifacts, fail on non-zero exit.
+- **Python SDK** — `pip install harnessctl`. Invoke agents programmatically from scripts, notebooks, and CI pipelines.
 
-### Planned
+### v0.5 — CI & platform integrations
 
-- `harnessctl stats` — aggregate run logs, compare cost/speed/quality across agents
-- Project-level config (`.harnessctl/` in repo) for team-shared agent preferences
-- `--cheapest` / `--fastest` flags for cost- or latency-optimized agent selection
-- Parallel execution — send the same task to multiple agents, compare results
+- **GitHub Actions workflow** — ready-made YAML for running harnessctl in CI. Pick an agent per job, structured logs as artifacts, fail on non-zero exit.
+- **Parallel execution** — send the same task to multiple agents simultaneously, compare results, surface the best output
 
 ### Not in scope
 

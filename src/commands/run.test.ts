@@ -9,7 +9,8 @@ mock.module("../config.ts", () => ({
   loadConfig: () => ({ default_agent: "claude" }),
   loadAgentConfig: () => ({}),
   resolveEnv: (env: Record<string, string>) => env,
-  isKnownAgent: (name: string) => ["claude"].includes(name),
+  isKnownAgent: (name: string) => ["claude", "codex", "opencode", "cursor"].includes(name),
+  RUNS_DIR: "/tmp/harnessctl-test/runs",
 }));
 
 mock.module("../adapters/registry.ts", () => ({
@@ -36,6 +37,10 @@ mock.module("../session.ts", () => ({
 
 mock.module("../log.ts", () => ({
   writeRunLog: (...args: any[]) => loggedRuns.push(args),
+}));
+
+mock.module("../lib/stats.ts", () => ({
+  computeStats: () => new Map(),
 }));
 
 mock.module("../ui.ts", () => ({

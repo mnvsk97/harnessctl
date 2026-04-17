@@ -21,6 +21,12 @@ if [[ "$1" == "auth" && "$2" == "list" ]]; then
   exit 1
 fi
 
+# Cursor: cursor-agent status
+if [[ "$1" == "status" ]]; then
+  echo "Not logged in"
+  exit 1
+fi
+
 if [[ "$1" == "--version" ]]; then
   echo "fake-agent 0.1.0"
   exit 0

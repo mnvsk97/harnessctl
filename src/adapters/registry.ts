@@ -4,12 +4,14 @@ import { claudeAdapter } from "./claude.ts";
 import { codexAdapter } from "./codex.ts";
 import { opencodeAdapter } from "./opencode.ts";
 import { geminiAdapter } from "./gemini.ts";
+import { cursorAdapter } from "./cursor.ts";
 
 const builtinAdapters: Record<string, Adapter> = {
   claude: claudeAdapter,
   codex: codexAdapter,
   opencode: opencodeAdapter,
   gemini: geminiAdapter,
+  cursor: cursorAdapter,
 };
 
 function createGenericAdapter(name: string, config: AgentConfig): Adapter {

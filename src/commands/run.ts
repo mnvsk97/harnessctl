@@ -1,18 +1,35 @@
 import { homedir } from "node:os";
-import { loadConfig, loadAgentConfig, resolveEnv, isKnownAgent } from "../config.ts";
+import { loadConfig, loadAgentConfig, resolveEnv, isKnownAgent, RUNS_DIR } from "../config.ts";
 import { getAdapter, checkAuth, listAdapterNames } from "../adapters/registry.ts";
 import { invoke } from "../invoke.ts";
 import { saveSession, loadSession, loadLastSession } from "../session.ts";
 import { writeRunLog } from "../log.ts";
 import { header, footer, separator, rule, c, askConfirm } from "../ui.ts";
+import { computeStats } from "../lib/stats.ts";
 import type { InvokeIntent, AgentConfig } from "../adapters/types.ts";
 
 export interface RunOptions {
   agent?: string;
   resume?: boolean;
+  cheapest?: boolean;
+  fastest?: boolean;
   prompt: string;
   extraArgs: string[];
   pipedInput?: string;
+}
+
+function pickBestAgent(by: "cost" | "speed", knownAgents: string[]): string | undefined {
+  const stats = computeStats(RUNS_DIR);
+  let best: string | undefined;
+  let bestVal = Infinity;
+  for (const [agent, s] of stats) {
+    if (!knownAgents.includes(agent)) continue;
+    // For speed: only consider agents with at least one successful run to avoid
+    // biasing toward agents that fail fast.
+    const val = by === "cost" ? (s.avgCost ?? Infinity) : (s.avgSuccessDuration ?? Infinity);
+    if (val < bestVal) { bestVal = val; best = agent; }
+  }
+  return best;
 }
 
 /** Run a single agent invocation. Returns the exit code. */
@@ -91,12 +108,22 @@ async function invokeAgent(
 
 export async function runCommand(opts: RunOptions): Promise<number> {
   const globalConfig = loadConfig();
-  const agentName = opts.agent ?? globalConfig.default_agent;
+  const knownAgents = listAdapterNames();
+  let agentName = opts.agent ?? globalConfig.default_agent;
 
-  if (!isKnownAgent(agentName, listAdapterNames())) {
-    const known = listAdapterNames();
+  if (!opts.agent) {
+    if (opts.cheapest) {
+      agentName = pickBestAgent("cost", knownAgents) ?? agentName;
+      console.error(c.dim(`  selected cheapest agent: ${agentName}`));
+    } else if (opts.fastest) {
+      agentName = pickBestAgent("speed", knownAgents) ?? agentName;
+      console.error(c.dim(`  selected fastest agent: ${agentName}`));
+    }
+  }
+
+  if (!isKnownAgent(agentName, knownAgents)) {
     console.error(`${c.red("✗")} unknown agent: "${agentName}"`);
-    console.error(c.dim(`  available: ${known.join(", ")}`));
+    console.error(c.dim(`  available: ${knownAgents.join(", ")}`));
     return 1;
   }
 
