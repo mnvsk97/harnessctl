@@ -11,9 +11,6 @@ export const AGENTS_DIR = join(HARNESS_DIR, "agents");
 export const SESSIONS_DIR = join(HARNESS_DIR, "sessions");
 export const RUNS_DIR = join(HARNESS_DIR, "runs");
 
-export const PROJECT_DIR = join(process.cwd(), ".harnessctl");
-export const PROJECT_CONFIG_PATH = join(PROJECT_DIR, "config.yaml");
-export const PROJECT_AGENTS_DIR = join(PROJECT_DIR, "agents");
 
 export interface GlobalConfig {
   default_agent: string;
@@ -74,9 +71,10 @@ export function ensureInit(): void {
 }
 
 function loadProjectConfig(): Partial<GlobalConfig> | null {
-  if (!existsSync(PROJECT_CONFIG_PATH)) return null;
+  const projectConfigPath = join(process.cwd(), ".harnessctl", "config.yaml");
+  if (!existsSync(projectConfigPath)) return null;
   try {
-    const raw = readFileSync(PROJECT_CONFIG_PATH, "utf-8");
+    const raw = readFileSync(projectConfigPath, "utf-8");
     return YAML.parse(raw) ?? null;
   } catch {
     return null;
@@ -116,7 +114,7 @@ export function loadAgentConfig(agent: string): AgentConfig {
     }
   }
 
-  const projectPath = join(PROJECT_AGENTS_DIR, `${agent}.yaml`);
+  const projectPath = join(process.cwd(), ".harnessctl", "agents", `${agent}.yaml`);
   if (!existsSync(projectPath)) return userConfig;
   try {
     const raw = readFileSync(projectPath, "utf-8");

@@ -62,34 +62,14 @@ jobs:
           HARNESSCTL_AGENT: ${{ vars.HARNESSCTL_AGENT || 'claude' }}
         run: harnessctl config set default "$HARNESSCTL_AGENT"
 
-      # ── 6. Inject the API key for the chosen agent ──────────────────────────
+      # ── 6. Run the agent ────────────────────────────────────────────────────
       #
+      # API keys are passed directly as environment variables to the subprocess.
       # Add whichever secret(s) match the agent(s) you use:
       #   • claude    → ANTHROPIC_API_KEY
       #   • codex     → OPENAI_API_KEY
       #   • opencode  → OPENAI_API_KEY  (or ANTHROPIC_API_KEY)
       #   • cursor    → CURSOR_API_KEY
-      #
-      # The secrets below are all optional — only the one(s) you add will be
-      # forwarded; GitHub replaces undefined secrets with an empty string.
-      - name: Set agent API key
-        run: |
-          if [ -n "$ANTHROPIC_API_KEY" ]; then
-            harnessctl config set-env claude ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"
-          fi
-          if [ -n "$OPENAI_API_KEY" ]; then
-            harnessctl config set-env codex    OPENAI_API_KEY "$OPENAI_API_KEY"
-            harnessctl config set-env opencode OPENAI_API_KEY "$OPENAI_API_KEY"
-          fi
-          if [ -n "$CURSOR_API_KEY" ]; then
-            harnessctl config set-env cursor CURSOR_API_KEY "$CURSOR_API_KEY"
-          fi
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
-          CURSOR_API_KEY:    ${{ secrets.CURSOR_API_KEY }}
-
-      # ── 7. Run the agent ────────────────────────────────────────────────────
       #
       # The prompt is passed as-is; append `-- <agent-flags>` for agent-specific
       # options such as --max-turns (claude) or --model (all agents).
@@ -108,8 +88,6 @@ jobs:
             "review this PR and suggest improvements" \
             -- --max-turns 10
         env:
-          # Make all API keys available to the subprocess as well, so adapters
-          # that read environment variables directly can find them.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
           CURSOR_API_KEY:    ${{ secrets.CURSOR_API_KEY }}

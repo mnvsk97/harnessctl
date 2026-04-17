@@ -24,7 +24,9 @@ function pickBestAgent(by: "cost" | "speed", knownAgents: string[]): string | un
   let bestVal = Infinity;
   for (const [agent, s] of stats) {
     if (!knownAgents.includes(agent)) continue;
-    const val = by === "cost" ? (s.avgCost ?? Infinity) : s.avgDuration;
+    // For speed: only consider agents with at least one successful run to avoid
+    // biasing toward agents that fail fast.
+    const val = by === "cost" ? (s.avgCost ?? Infinity) : (s.avgSuccessDuration ?? Infinity);
     if (val < bestVal) { bestVal = val; best = agent; }
   }
   return best;

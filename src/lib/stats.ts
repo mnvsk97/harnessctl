@@ -9,6 +9,7 @@ export interface AgentStats {
   avgCost: number | null;
   avgTokens: number | null;
   avgDuration: number;
+  avgSuccessDuration: number | null;
 }
 
 export function computeStats(runsDir: string): Map<string, AgentStats> {
@@ -21,7 +22,7 @@ export function computeStats(runsDir: string): Map<string, AgentStats> {
 
   const grouped = new Map<
     string,
-    { successes: number; costs: number[]; tokens: number[]; durations: number[] }
+    { successes: number; costs: number[]; tokens: number[]; durations: number[]; successDurations: number[] }
   >();
 
   for (const file of files) {
@@ -36,12 +37,16 @@ export function computeStats(runsDir: string): Map<string, AgentStats> {
     if (!agent) continue;
 
     if (!grouped.has(agent)) {
-      grouped.set(agent, { successes: 0, costs: [], tokens: [], durations: [] });
+      grouped.set(agent, { successes: 0, costs: [], tokens: [], durations: [], successDurations: [] });
     }
 
     const entry = grouped.get(agent)!;
+    const success = log.result.exitCode === 0;
 
-    if (log.result.exitCode === 0) entry.successes++;
+    if (success) {
+      entry.successes++;
+      entry.successDurations.push(log.result.duration);
+    }
 
     if (log.result.cost != null) entry.costs.push(log.result.cost);
 
@@ -69,6 +74,9 @@ export function computeStats(runsDir: string): Map<string, AgentStats> {
       avgDuration: total > 0
         ? entry.durations.reduce((a, b) => a + b, 0) / total
         : 0,
+      avgSuccessDuration: entry.successDurations.length > 0
+        ? entry.successDurations.reduce((a, b) => a + b, 0) / entry.successDurations.length
+        : null,
     });
   }
 
