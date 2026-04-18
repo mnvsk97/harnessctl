@@ -6,6 +6,8 @@
 
 Same commands, same logs, same handoff. Pick any agent underneath.
 
+*Research preview -- expect rough edges.*
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/harnessctl)](https://www.npmjs.com/package/harnessctl)
 [![npm downloads](https://img.shields.io/npm/dm/harnessctl)](https://www.npmjs.com/package/harnessctl)
@@ -329,6 +331,14 @@ bash test/sim-fallback.sh       # simulated failover with fake agents
 
 ---
 
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started.
+
+This project follows a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold it.
+
+For security issues, see [SECURITY.md](SECURITY.md).
+
 ## License
 
-MIT
+[MIT](LICENSE)
