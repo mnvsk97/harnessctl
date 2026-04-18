@@ -1,4 +1,5 @@
 import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
+import { defaultDetectExitReason } from "./_shared.ts";
 
 export const cursorAdapter: Adapter = {
   name: "cursor",
@@ -12,6 +13,10 @@ export const cursorAdapter: Adapter = {
     model:  (val) => ["-m", val],
     resume: (val) => ["--resume", val],
   },
+
+  contextWindow: 200_000,
+
+  detectExitReason: defaultDetectExitReason,
 
   parseOutput(stdout: string, _stderr: string): Partial<RunResult> {
     const result: Partial<RunResult> = {};

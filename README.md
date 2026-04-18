@@ -163,9 +163,61 @@ harnessctl config set default claude    # set default agent
 harnessctl config get                   # show all config
 ```
 
+### Project context (v0.2)
+
+Set a per-project preamble that gets prepended to every prompt, and is also mirrored into each agent's native memory file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) between `<!-- harnessctl:begin/end -->` sentinels so every agent reads the same context.
+
+```bash
+harnessctl context set "Go 1.22, postgres, follow existing patterns"
+harnessctl context edit                 # opens $EDITOR
+harnessctl context sync                 # re-sync to native memory files
+harnessctl context clear
+```
+
+### Prompt templates (v0.2)
+
+Reusable prompt shells in `~/.harnessctl/templates/<name>.md`. `{{ARGS}}` is the only reserved token.
+
+```bash
+echo 'Review {{ARGS}} for security' > ~/.harnessctl/templates/sec.md
+harnessctl run --template sec "src/auth.ts"
+```
+
+### Budget guardrails (v0.2)
+
+```bash
+harnessctl run --budget 2.00 "refactor the payment module"   # abort if today's spend ≥ $2
+```
+
+### Cost dashboard (v0.2)
+
+```bash
+harnessctl stats --cost    # per-agent daily spend + 14-day sparkline
+```
+
+### Replay (v0.2)
+
+```bash
+harnessctl logs               # find a run id
+harnessctl replay <run-id>    # re-run with same agent, prompt, and extra args
+```
+
+### MCP health check (v0.2)
+
+```bash
+harnessctl doctor --mcp       # list configured MCP servers across agents
+```
+
 ## Fallback
 
 When an agent fails — whether from token exhaustion, rate limiting, auth failure, or a crash — harnessctl can automatically offer to hand off to a backup agent.
+
+### Auto-failover (v0.2)
+
+Set `auto_failover: true` in `~/.harnessctl/agents/<name>.yaml` to skip the prompt when the failure is a rate limit, token-window overflow, or auth error. harnessctl classifies the exit reason and, on a limit/auth failure, silently hands off to the configured `fallback:` agent.
+
+For agents that expose their session on disk (Claude, Codex), the **prior conversation** (prior user/assistant turns) is also extracted, formatted, and prepended to the new prompt — so the next agent picks up where the previous one left off, not just from a one-line summary. Truncated to ~40% of the target agent's context window; falls back to summary-only if extraction isn't supported. Set `failover_transfer: "summary"` per-agent to opt out of transcript transfer.
+
 
 ### Configure fallback
 

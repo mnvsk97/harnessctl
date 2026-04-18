@@ -1,6 +1,30 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
+import type { Adapter, AuthCheckResult, RunResult, Turn } from "./types.ts";
+import { defaultDetectExitReason } from "./_shared.ts";
+
+/** Find the newest rollout-*.jsonl under ~/.codex/sessions/ modified after ts. */
+function findNewestRollout(sinceMs: number): string | null {
+  const base = `${homedir()}/.codex/sessions`;
+  let best: { path: string; mtime: number } | null = null;
+  const walk = (dir: string) => {
+    let entries: ReturnType<typeof readdirSync>;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const full = `${dir}/${e.name}`;
+      if (e.isDirectory()) walk(full);
+      else if (e.name.startsWith("rollout-") && e.name.endsWith(".jsonl")) {
+        try {
+          const mtime = statSync(full).mtimeMs;
+          if (!best || mtime > best.mtime) best = { path: full, mtime };
+        } catch {}
+      }
+    }
+  };
+  walk(base);
+  if (!best || best.mtime < sinceMs) return null;
+  return best.path;
+}
 
 export const codexAdapter: Adapter = {
   name: "codex",
@@ -13,6 +37,32 @@ export const codexAdapter: Adapter = {
   argMap: {
     model: (val) => ["--model", val],
     // codex has no session resume — intentionally absent
+  },
+
+  memoryFile: "AGENTS.md",
+  contextWindow: 128_000,
+
+  detectExitReason: defaultDetectExitReason,
+
+  async extractTranscript(_cwd: string, _sessionId: string | undefined, startedAt: number): Promise<Turn[]> {
+    const path = findNewestRollout(startedAt);
+    if (!path) return [];
+    let content: string;
+    try { content = readFileSync(path, "utf8"); } catch { return []; }
+    const turns: Turn[] = [];
+    for (const line of content.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const ev = JSON.parse(line);
+        const payload = ev.event_msg?.payload ?? ev.payload ?? ev;
+        const role = payload?.role ?? ev.role;
+        const text = payload?.text ?? payload?.message ?? payload?.content;
+        if ((role === "user" || role === "assistant") && typeof text === "string" && text.trim()) {
+          turns.push({ role, content: text });
+        }
+      } catch {}
+    }
+    return turns;
   },
 
   parseOutput(stdout: string, _stderr: string): Partial<RunResult> {

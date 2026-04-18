@@ -11,7 +11,17 @@ mock.module("../config.ts", () => ({
   resolveEnv: (env: Record<string, string>) => env,
   isKnownAgent: (name: string) => ["claude", "codex", "opencode", "cursor"].includes(name),
   RUNS_DIR: "/tmp/harnessctl-test/runs",
+  PROJECTS_DIR: "/tmp/harnessctl-test/projects",
+  TEMPLATES_DIR: "/tmp/harnessctl-test/templates",
 }));
+
+mock.module("../lib/context.ts", () => ({ getContext: () => "" }));
+mock.module("../lib/templates.ts", () => ({
+  loadTemplate: () => null,
+  interpolate: (tpl: string) => tpl,
+}));
+mock.module("../lib/budget.ts", () => ({ todaySpend: () => 0 }));
+mock.module("../lib/transcript.ts", () => ({ formatTranscript: () => "" }));
 
 mock.module("../adapters/registry.ts", () => ({
   getAdapter: () => ({

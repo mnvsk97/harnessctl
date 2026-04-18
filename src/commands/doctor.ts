@@ -34,7 +34,40 @@ function getConfiguredAgents(): string[] {
   return agents;
 }
 
-export function doctorCommand(): void {
+/** Probe each configured agent for MCP servers. Best-effort per agent. */
+function mcpCheck(): void {
+  const agents = getConfiguredAgents();
+  header(c.bold("harnessctl doctor --mcp"));
+  separator();
+  let any = false;
+  for (const name of agents) {
+    const config = loadAgentConfig(name);
+    let cmd: string;
+    try { cmd = getAdapter(name, config).base.cmd; } catch { continue; }
+    const r = spawnSync(cmd, ["mcp", "list"], { timeout: 5000, stdio: "pipe" });
+    const combined = (r.stdout?.toString() ?? "") + (r.stderr?.toString() ?? "");
+    if (r.error || r.status !== 0) {
+      console.error(`  ${c.dim("·")} ${c.bold(name)} — ${c.dim("no mcp support / not configured")}`);
+      continue;
+    }
+    any = true;
+    const lines = combined.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      console.error(`  ${c.green("✓")} ${c.bold(name)} — ${c.dim("no MCP servers configured")}`);
+    } else {
+      console.error(`  ${c.green("✓")} ${c.bold(name)}`);
+      for (const line of lines.slice(0, 20)) console.error(`      ${c.dim(line)}`);
+    }
+  }
+  separator();
+  footer([any ? `${c.green("✓")} mcp probe complete` : `${c.yellow("⚠")} no agent reported MCP support`]);
+}
+
+export function doctorCommand(argv: string[] = []): void {
+  if (argv.includes("--mcp")) {
+    mcpCheck();
+    return;
+  }
   const globalConfig = loadConfig();
 
   header(c.bold("harnessctl doctor"), [`default: ${globalConfig.default_agent}`]);
