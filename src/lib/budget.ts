@@ -23,7 +23,7 @@ export function todaySpend(agent?: string): number {
 function computeSpendForDate(date: string): Map<string, number> {
   const out = new Map<string, number>();
   let files: string[];
-  try { files = readdirSync(RUNS_DIR); } catch { return out; }
+  try { files = readdirSync(RUNS_DIR); } catch { return out; /* runs dir missing or unreadable */ }
   for (const f of files) {
     if (!f.endsWith(".json")) continue;
     try {
@@ -32,7 +32,7 @@ function computeSpendForDate(date: string): Map<string, number> {
       const cost = log.result?.cost ?? 0;
       if (!cost) continue;
       out.set(log.agent, (out.get(log.agent) ?? 0) + cost);
-    } catch { /* skip */ }
+    } catch { /* skip malformed or unreadable run log */ }
   }
   return out;
 }

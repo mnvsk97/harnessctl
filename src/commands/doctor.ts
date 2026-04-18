@@ -86,8 +86,9 @@ export function doctorCommand(argv: string[] = []): void {
     let adapter: Adapter;
     try {
       adapter = getAdapter(name, config);
-    } catch (err: any) {
-      console.error(`  ${c.red("✗")} ${c.bold(name)} — ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`  ${c.red("✗")} ${c.bold(name)} — ${message}`);
       allOk = false;
       continue;
     }

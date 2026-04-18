@@ -3,6 +3,9 @@ import type { Adapter, AgentConfig, InvokeIntent, RunResult } from "./adapters/t
 import { buildCommand } from "./adapters/registry.ts";
 import { defaultDetectExitReason } from "./adapters/_shared.ts";
 
+const DEFAULT_TIMEOUT_SECONDS = 300;
+const KILL_GRACE_PERIOD_MS = 5000;
+
 export function invoke(
   adapter: Adapter,
   intent: InvokeIntent,
@@ -15,7 +18,7 @@ export function invoke(
     console.error(`[harnessctl] warning: ${w}`);
   }
 
-  const timeout = agentConfig.timeout ?? 300;
+  const timeout = agentConfig.timeout ?? DEFAULT_TIMEOUT_SECONDS;
   const start = Date.now();
 
   return new Promise((resolve, reject) => {
@@ -52,7 +55,7 @@ export function invoke(
       child.kill("SIGTERM");
       setTimeout(() => {
         if (!child.killed) child.kill("SIGKILL");
-      }, 5000);
+      }, KILL_GRACE_PERIOD_MS);
     }, timeout * 1000);
 
     child.on("close", async (code) => {

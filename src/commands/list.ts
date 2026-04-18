@@ -27,9 +27,10 @@ export function listCommand(): void {
     let adapter: Adapter;
     try {
       adapter = getAdapter(name, config);
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.log(`  ${name}  \x1b[31m✗ invalid config\x1b[0m`);
-      console.log(`    ${err.message}`);
+      console.log(`    ${message}`);
       continue;
     }
     const health = adapter.healthCheck();

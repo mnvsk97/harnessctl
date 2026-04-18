@@ -4,3 +4,5 @@ bun.lock
 dist/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+.claude/
+.harnessctl/

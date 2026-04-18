@@ -51,6 +51,35 @@ const DEFAULT_AGENTS: Record<string, AgentConfig> = {
   },
 };
 
+/**
+ * Parse a .env file and merge its values into process.env.
+ * Supports KEY=VALUE, KEY="VALUE", KEY='VALUE', comments (#), and blank lines.
+ * Does NOT override variables already set in the environment.
+ */
+function loadDotenv(filePath: string): void {
+  if (!existsSync(filePath)) return;
+  let content: string;
+  try { content = readFileSync(filePath, "utf-8"); } catch { return; }
+
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    let value = trimmed.slice(eqIdx + 1).trim();
+    // Strip surrounding quotes
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    // Don't override existing env vars
+    if (process.env[key] == null) {
+      process.env[key] = value;
+    }
+  }
+}
+
 export function ensureInit(): void {
   try {
     for (const dir of [HARNESS_DIR, AGENTS_DIR, SESSIONS_DIR, RUNS_DIR, PROJECTS_DIR, TEMPLATES_DIR]) {
@@ -65,11 +94,16 @@ export function ensureInit(): void {
         writeFileSync(path, YAML.stringify(config));
       }
     }
-  } catch (err: any) {
-    console.error(`[harnessctl] failed to initialize config directory (~/.harnessctl): ${err.message}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[harnessctl] failed to initialize config directory (~/.harnessctl): ${message}`);
     console.error("[harnessctl] tip: check that your home directory is writable");
     process.exit(1);
   }
+
+  // Load .env files (project-level takes priority over global)
+  loadDotenv(join(process.cwd(), ".harnessctl", ".env"));
+  loadDotenv(join(HARNESS_DIR, ".env"));
 }
 
 function loadProjectConfig(): Partial<GlobalConfig> | null {
@@ -90,8 +124,9 @@ export function loadConfig(): GlobalConfig {
     const userConfig: GlobalConfig = { ...DEFAULT_CONFIG, ...YAML.parse(raw) };
     const projectConfig = loadProjectConfig();
     return projectConfig ? { ...userConfig, ...projectConfig } : userConfig;
-  } catch (err: any) {
-    console.error(`[harnessctl] failed to load config (${CONFIG_PATH}): ${err.message}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[harnessctl] failed to load config (${CONFIG_PATH}): ${message}`);
     console.error("[harnessctl] tip: check YAML syntax or delete the file to reset");
     process.exit(1);
   }
@@ -109,8 +144,9 @@ export function loadAgentConfig(agent: string): AgentConfig {
     try {
       const raw = readFileSync(path, "utf-8");
       userConfig = YAML.parse(raw) ?? {};
-    } catch (err: any) {
-      console.error(`[harnessctl] failed to parse agent config (${path}): ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[harnessctl] failed to parse agent config (${path}): ${message}`);
       console.error("[harnessctl] tip: check YAML syntax or delete the file to reset");
       process.exit(1);
     }

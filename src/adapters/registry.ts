@@ -14,10 +14,20 @@ const builtinAdapters: Record<string, Adapter> = {
   cursor: cursorAdapter,
 };
 
+/** Reject commands containing shell metacharacters or path traversal. */
+const UNSAFE_CMD_PATTERN = /[;&|`$(){}!<>\n\r\\#~]|\.\./;
+
 function createGenericAdapter(name: string, config: AgentConfig): Adapter {
   if (!config.cmd) {
     throw new Error(
       `Custom agent "${name}" is missing required field "cmd" in ~/.harnessctl/agents/${name}.yaml`,
+    );
+  }
+
+  if (UNSAFE_CMD_PATTERN.test(config.cmd)) {
+    throw new Error(
+      `Custom agent "${name}" has an unsafe "cmd" value: "${config.cmd}". ` +
+      `The command must not contain shell metacharacters (;, &, |, $, \`, etc.) or path traversal (..).`,
     );
   }
 
@@ -32,7 +42,6 @@ function createGenericAdapter(name: string, config: AgentConfig): Adapter {
       cmd,
       args: config.args ?? [],
     },
-    stdinMode: "prompt",
     argMap: {
       ...(modelArg ? { model: (val: string) => [modelArg, val] } : {}),
       ...(resumeArg ? { resume: (val: string) => [resumeArg, val] } : {}),

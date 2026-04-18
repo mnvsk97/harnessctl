@@ -2,7 +2,7 @@ import { loadAgentConfig, resolveEnv } from "../config.ts";
 import { getAdapter, checkAuth, listAdapterNames } from "../adapters/registry.ts";
 import { invoke } from "../invoke.ts";
 import { writeRunLog } from "../log.ts";
-import { separator, rule, c } from "../ui.ts";
+import { separator, c } from "../ui.ts";
 import type { InvokeIntent } from "../adapters/types.ts";
 import type { RunResult } from "../adapters/types.ts";
 
@@ -59,8 +59,9 @@ export async function compareCommand(opts: CompareOptions): Promise<number> {
     let adapter: ReturnType<typeof getAdapter>;
     try {
       adapter = getAdapter(agentName, agentConfig);
-    } catch (err: any) {
-      console.error(c.dim(`  skipping ${agentName}: ${err.message}`));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(c.dim(`  skipping ${agentName}: ${message}`));
       continue;
     }
 
@@ -92,8 +93,8 @@ export async function compareCommand(opts: CompareOptions): Promise<number> {
         const result = await invoke(adapterRef, intent, agentConfigRef);
         writeRunLog(agent, opts.prompt, cwd, result);
         return { agent, result, error: null };
-      } catch (err: any) {
-        return { agent, result: null, error: err.message ?? String(err) };
+      } catch (err) {
+        return { agent, result: null, error: err instanceof Error ? err.message : String(err) };
       }
     }),
   );

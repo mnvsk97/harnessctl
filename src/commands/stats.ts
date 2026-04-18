@@ -5,8 +5,6 @@ import { computeStats } from "../lib/stats.ts";
 import { c, separator } from "../ui.ts";
 import type { RunLog } from "../log.ts";
 
-export { computeStats } from "../lib/stats.ts";
-export type { AgentStats } from "../lib/stats.ts";
 
 const SPARK = "▁▂▃▄▅▆▇█";
 
