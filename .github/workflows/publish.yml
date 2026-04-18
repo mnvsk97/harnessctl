@@ -54,27 +54,40 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump patch version
+      - name: Bump, commit, and push (with retry)
         id: bump
         run: |
-          CURRENT=$(node -p "require('./package.json').version")
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-          NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-          node -e "
-            const pkg = require('./package.json');
-            pkg.version = '$NEW_VERSION';
-            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Bumped $CURRENT -> $NEW_VERSION"
+          for ATTEMPT in 1 2 3; do
+            echo "=== Attempt $ATTEMPT ==="
+            # Always pull latest before reading version
+            git pull --rebase origin main
 
-      - name: Commit and tag
-        run: |
-          git add package.json
-          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}"
-          git tag "v${{ steps.bump.outputs.version }}"
-          git pull --rebase origin main
-          git push origin main --follow-tags
+            CURRENT=$(node -p "require('./package.json').version")
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+            NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+            node -e "
+              const pkg = require('./package.json');
+              pkg.version = '$NEW_VERSION';
+              require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            "
+            echo "Bumping $CURRENT -> $NEW_VERSION"
+
+            git add package.json
+            git commit -m "chore: bump version to $NEW_VERSION"
+            git tag "v$NEW_VERSION"
+
+            if git push origin main --follow-tags; then
+              echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+              echo "Published $NEW_VERSION"
+              exit 0
+            fi
+
+            echo "Push failed, resetting and retrying..."
+            git tag -d "v$NEW_VERSION"
+            git reset --hard HEAD~1
+          done
+          echo "::error::Failed to push after 3 attempts"
+          exit 1
 
   build:
     needs: version-and-tag
