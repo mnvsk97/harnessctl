@@ -9,44 +9,50 @@ import { setupCommand } from "./commands/setup.ts";
 import { statsCommand } from "./commands/stats.ts";
 import { logsCommand } from "./commands/logs.ts";
 import { compareCommand } from "./commands/compare.ts";
+import { contextCommand } from "./commands/context.ts";
+import { replayCommand } from "./commands/replay.ts";
 
 const USAGE = `harnessctl — universal coding agent CLI
 
 Usage:
   harnessctl setup
-  harnessctl run [--agent <name>] [--resume] [--cheapest] [--fastest] <prompt> [-- <extra-args>...]
+  harnessctl run [--agent <name>] [--resume] [--cheapest] [--fastest]
+                 [--template <name>] [--budget <usd>] <prompt> [-- <extra-args>...]
   harnessctl shell [--agent <name>] [-- <extra-args>...]
   harnessctl compare <prompt> [--agents <a,b,...>] [-- <extra-args>...]
+  harnessctl replay <run-id>
+  harnessctl context get|set|edit|clear|sync|path
   harnessctl list
-  harnessctl stats
+  harnessctl stats [--cost]
   harnessctl logs [--agent <name>] [--limit N]
-  harnessctl doctor
-  harnessctl config get [key]
-  harnessctl config set <key> <value>
-  harnessctl config set-fallback <agent> <fallback>
-  harnessctl config get-fallback <agent>
-  harnessctl config remove-fallback <agent>
+  harnessctl doctor [--mcp]
+  harnessctl config get|set|set-fallback|get-fallback|remove-fallback ...
 
 Options:
-  --agent <name>   Agent to use (default: from config)
-  --resume         Resume last session (or handoff if agent changed)
-  --cheapest       Pick the agent with lowest avg cost from run history
-  --fastest        Pick the agent with lowest avg duration from run history
+  --agent <name>      Agent to use (default: from config)
+  --resume            Resume last session (or handoff if agent changed)
+  --cheapest          Pick the agent with lowest avg cost from run history
+  --fastest           Pick the agent with lowest avg duration from run history
+  --template <name>   Wrap prompt in a template from ~/.harnessctl/templates/
+  --budget <usd>      Abort if today's spend for this agent would exceed $N
+  --cost              (stats)  Show per-agent daily spend with sparkline
+  --mcp               (doctor) List MCP servers configured in each agent
+
+Auto-failover:
+  Set \`auto_failover: true\` in ~/.harnessctl/agents/<agent>.yaml and point
+  \`fallback:\` at another agent. When the primary hits a rate/token/auth limit,
+  harnessctl silently hands off with the full conversation transcript.
 
 Examples:
   harnessctl run "fix the auth bug"
-  harnessctl run --agent codex "fix the auth bug"
-  harnessctl run --resume "now add tests for that"
-  harnessctl run --cheapest "refactor this module"
-  harnessctl run --fastest "quick fix for the typo"
-  harnessctl run --agent claude "fix this" -- --max-turns 5
-  harnessctl compare "fix the auth bug" --agents claude,codex
-  harnessctl shell                          # interactive REPL with default agent
-  harnessctl shell --agent codex            # interactive REPL with codex
-  harnessctl stats                          # show per-agent cost/speed stats
-  harnessctl logs --agent claude --limit 10
-  cat error.log | harnessctl run "fix this"
-  harnessctl config set default claude
+  harnessctl run --agent codex --resume "add tests for that"
+  harnessctl run --template code-review "src/auth.ts"
+  harnessctl run --budget 2.00 "refactor the payment module"
+  harnessctl context set "Go 1.22, postgres, follow existing patterns"
+  harnessctl replay 1713364500000-claude
+  harnessctl stats --cost
+  harnessctl doctor --mcp
+  cat error.log | harnessctl run "explain this"
 `;
 
 async function main() {
@@ -68,33 +74,23 @@ async function main() {
       let resume = false;
       let cheapest = false;
       let fastest = false;
+      let template: string | undefined;
+      let budget: number | undefined;
       const extraArgs: string[] = [];
       const promptParts: string[] = [];
       let pastSeparator = false;
 
       for (let i = 0; i < args.length; i++) {
-        if (pastSeparator) {
-          extraArgs.push(args[i]);
-          continue;
-        }
-        if (args[i] === "--") {
-          pastSeparator = true;
-          continue;
-        }
-        if (args[i] === "--agent" || args[i] === "-a") {
-          agent = args[++i];
-          continue;
-        }
-        if (args[i] === "--resume" || args[i] === "-r") {
-          resume = true;
-          continue;
-        }
-        if (args[i] === "--cheapest") {
-          cheapest = true;
-          continue;
-        }
-        if (args[i] === "--fastest") {
-          fastest = true;
+        if (pastSeparator) { extraArgs.push(args[i]); continue; }
+        if (args[i] === "--") { pastSeparator = true; continue; }
+        if (args[i] === "--agent" || args[i] === "-a") { agent = args[++i]; continue; }
+        if (args[i] === "--resume" || args[i] === "-r") { resume = true; continue; }
+        if (args[i] === "--cheapest") { cheapest = true; continue; }
+        if (args[i] === "--fastest") { fastest = true; continue; }
+        if (args[i] === "--template" || args[i] === "-t") { template = args[++i]; continue; }
+        if (args[i] === "--budget" || args[i] === "-b") {
+          const v = parseFloat(args[++i]);
+          if (Number.isFinite(v) && v > 0) budget = v;
           continue;
         }
         promptParts.push(args[i]);
@@ -107,11 +103,11 @@ async function main() {
       }
 
       let pipedInput: string | undefined;
-      if (!process.stdin.isTTY) {
-        pipedInput = await readStdin();
-      }
+      if (!process.stdin.isTTY) pipedInput = await readStdin();
 
-      const exitCode = await runCommand({ agent, resume, cheapest, fastest, prompt, extraArgs, pipedInput });
+      const exitCode = await runCommand({
+        agent, resume, cheapest, fastest, prompt, extraArgs, pipedInput, template, budget,
+      });
       process.exit(exitCode);
     }
 
@@ -122,18 +118,9 @@ async function main() {
       let shellPastSep = false;
 
       for (let i = 0; i < shellArgs.length; i++) {
-        if (shellPastSep) {
-          shellExtraArgs.push(shellArgs[i]);
-          continue;
-        }
-        if (shellArgs[i] === "--") {
-          shellPastSep = true;
-          continue;
-        }
-        if (shellArgs[i] === "--agent" || shellArgs[i] === "-a") {
-          shellAgent = shellArgs[++i];
-          continue;
-        }
+        if (shellPastSep) { shellExtraArgs.push(shellArgs[i]); continue; }
+        if (shellArgs[i] === "--") { shellPastSep = true; continue; }
+        if (shellArgs[i] === "--agent" || shellArgs[i] === "-a") { shellAgent = shellArgs[++i]; continue; }
       }
 
       const shellExitCode = await shellCommand({ agent: shellAgent, extraArgs: shellExtraArgs });
@@ -148,14 +135,8 @@ async function main() {
       let pastSep = false;
 
       for (let i = 0; i < compareArgs.length; i++) {
-        if (pastSep) {
-          extraArgs.push(compareArgs[i]);
-          continue;
-        }
-        if (compareArgs[i] === "--") {
-          pastSep = true;
-          continue;
-        }
+        if (pastSep) { extraArgs.push(compareArgs[i]); continue; }
+        if (compareArgs[i] === "--") { pastSep = true; continue; }
         if (compareArgs[i] === "--agents" && compareArgs[i + 1]) {
           compareAgents = compareArgs[++i].split(",").map((s) => s.trim()).filter(Boolean);
           continue;
@@ -170,16 +151,20 @@ async function main() {
       }
 
       let pipedInput: string | undefined;
-      if (!process.stdin.isTTY) {
-        pipedInput = await readStdin();
-      }
+      if (!process.stdin.isTTY) pipedInput = await readStdin();
 
       const exitCode = await compareCommand({ prompt, agents: compareAgents, extraArgs, pipedInput });
       process.exit(exitCode);
     }
 
+    case "context":
+      process.exit(contextCommand(argv.slice(1)));
+
+    case "replay":
+      process.exit(await replayCommand(argv.slice(1)));
+
     case "stats":
-      statsCommand();
+      statsCommand(argv.slice(1));
       break;
 
     case "logs":
@@ -191,7 +176,7 @@ async function main() {
       break;
 
     case "doctor":
-      doctorCommand();
+      doctorCommand(argv.slice(1));
       break;
 
     case "setup":

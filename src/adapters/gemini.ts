@@ -1,4 +1,5 @@
 import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
+import { defaultDetectExitReason } from "./_shared.ts";
 
 export const geminiAdapter: Adapter = {
   name: "gemini",
@@ -14,6 +15,11 @@ export const geminiAdapter: Adapter = {
     model:  (val) => ["--model", val],
     resume: (val) => ["--resume", val],
   },
+
+  memoryFile: "GEMINI.md",
+  contextWindow: 1_000_000,
+
+  detectExitReason: defaultDetectExitReason,
 
   parseOutput(stdout: string, _stderr: string): Partial<RunResult> {
     const result: Partial<RunResult> = {};

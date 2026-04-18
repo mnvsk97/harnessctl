@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import type { Adapter, AgentConfig, InvokeIntent, RunResult } from "./adapters/types.ts";
 import { buildCommand } from "./adapters/registry.ts";
+import { defaultDetectExitReason } from "./adapters/_shared.ts";
 
 export function invoke(
   adapter: Adapter,
@@ -76,6 +77,13 @@ export function invoke(
         } catch {
           // postRun is best-effort; never fail the run
         }
+      }
+      // Classify the outcome for auto-failover decisions. Never throws.
+      try {
+        const detect = adapter.detectExitReason ?? defaultDetectExitReason;
+        base.exitReason = detect(stdoutBuf, stderrBuf, code);
+      } catch {
+        base.exitReason = code === 0 ? "success" : "error";
       }
       resolve(base);
     });

@@ -10,6 +10,8 @@ export const CONFIG_PATH = join(HARNESS_DIR, "config.yaml");
 export const AGENTS_DIR = join(HARNESS_DIR, "agents");
 export const SESSIONS_DIR = join(HARNESS_DIR, "sessions");
 export const RUNS_DIR = join(HARNESS_DIR, "runs");
+export const PROJECTS_DIR = join(HARNESS_DIR, "projects");
+export const TEMPLATES_DIR = join(HARNESS_DIR, "templates");
 
 
 export interface GlobalConfig {
@@ -51,7 +53,7 @@ const DEFAULT_AGENTS: Record<string, AgentConfig> = {
 
 export function ensureInit(): void {
   try {
-    for (const dir of [HARNESS_DIR, AGENTS_DIR, SESSIONS_DIR, RUNS_DIR]) {
+    for (const dir of [HARNESS_DIR, AGENTS_DIR, SESSIONS_DIR, RUNS_DIR, PROJECTS_DIR, TEMPLATES_DIR]) {
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     }
     if (!existsSync(CONFIG_PATH)) {

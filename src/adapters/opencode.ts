@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
+import { defaultDetectExitReason } from "./_shared.ts";
 
 export const opencodeAdapter: Adapter = {
   name: "opencode",
@@ -14,6 +15,11 @@ export const opencodeAdapter: Adapter = {
     model: (val) => ["--model", val],
     // opencode has no session resume — intentionally absent
   },
+
+  memoryFile: "AGENTS.md",
+  contextWindow: 128_000,
+
+  detectExitReason: defaultDetectExitReason,
 
   parseOutput(stdout: string, _stderr: string): Partial<RunResult> {
     const result: Partial<RunResult> = {};

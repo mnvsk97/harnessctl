@@ -18,6 +18,7 @@ export default defineConfig({
           { text: "Configuration", link: "/guide/configuration" },
           { text: "Adapters", link: "/guide/adapters" },
           { text: "Observability", link: "/guide/observability" },
+          { text: "v0.2 — Failover, context, cost", link: "/guide/v0.2-features" },
         ],
       },
     ],

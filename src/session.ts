@@ -1,17 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { SESSIONS_DIR } from "./config.ts";
+import { cwdHash } from "./lib/cwdHash.ts";
 
 export interface SessionData {
   agent: string;
   sessionId?: string;
   summary: string;
   timestamp: string;
-}
-
-function cwdHash(cwd: string): string {
-  return createHash("sha256").update(cwd).digest("hex").slice(0, 12);
 }
 
 function sessionDir(cwd: string): string {
