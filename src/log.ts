@@ -13,6 +13,10 @@ export interface RunLog {
   model?: string;
   /** Passthrough extra args given after `--`. Optional for back-compat. */
   extraArgs?: string[];
+  /** Harness-level session ID grouping related runs. */
+  harnessSessionId?: string;
+  /** Run ID this was handed off from, if any. */
+  parentRunId?: string;
 }
 
 export function writeRunLog(
@@ -20,7 +24,7 @@ export function writeRunLog(
   prompt: string,
   cwd: string,
   result: RunResult,
-  extras?: { model?: string; extraArgs?: string[] },
+  extras?: { model?: string; extraArgs?: string[]; harnessSessionId?: string; parentRunId?: string },
 ): string {
   ensureInit();
   const log: RunLog = {
@@ -31,6 +35,8 @@ export function writeRunLog(
     timestamp: new Date().toISOString(),
     ...(extras?.model ? { model: extras.model } : {}),
     ...(extras?.extraArgs && extras.extraArgs.length ? { extraArgs: extras.extraArgs } : {}),
+    ...(extras?.harnessSessionId ? { harnessSessionId: extras.harnessSessionId } : {}),
+    ...(extras?.parentRunId ? { parentRunId: extras.parentRunId } : {}),
   };
   const filename = `${Date.now()}-${agent}.json`;
   const path = join(RUNS_DIR, filename);

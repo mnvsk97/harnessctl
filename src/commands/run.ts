@@ -2,15 +2,19 @@ import { homedir } from "node:os";
 import { loadConfig, loadAgentConfig, resolveEnv, isKnownAgent, RUNS_DIR } from "../config.ts";
 import { getAdapter, checkAuth, listAdapterNames } from "../adapters/registry.ts";
 import { invoke } from "../invoke.ts";
-import { saveSession, loadSession, loadLastSession } from "../session.ts";
+import { createSession, addRun, loadSession, loadLatestSession, latestRunForAgent } from "../session.ts";
+import type { HarnessSessionRun } from "../session.ts";
 import { writeRunLog } from "../log.ts";
 import { header, footer, separator, rule, c, askConfirm } from "../ui.ts";
 import { computeStats } from "../lib/stats.ts";
 import { getContext } from "../lib/context.ts";
 import { loadTemplate, interpolate } from "../lib/templates.ts";
 import { todaySpend } from "../lib/budget.ts";
-import { formatTranscript } from "../lib/transcript.ts";
-import type { InvokeIntent, AgentConfig, ExitReason, Turn, RunResult } from "../adapters/types.ts";
+import { buildTranscriptBlock } from "../lib/transcript.ts";
+import { writeHandoffFile, getHeadSha, getChangedFiles, ensureGitignore } from "../lib/handoff.ts";
+import type { InvokeIntent, AgentConfig, ExitReason, RunResult } from "../adapters/types.ts";
+
+const BUDGET_WARNING_THRESHOLD = 0.8;
 
 export interface RunOptions {
   agent?: string;
@@ -24,6 +28,10 @@ export interface RunOptions {
   template?: string;
   /** Per-run budget cap in USD for today across this agent. */
   budget?: number;
+  /** Set by handoff command to continue an existing harness session. */
+  harnessSessionId?: string;
+  /** Set by handoff command to link this run to its source. */
+  parentRunId?: string;
 }
 
 function pickBestAgent(by: "cost" | "speed", knownAgents: string[]): string | undefined {
@@ -84,6 +92,7 @@ async function invokeAgent(
   opts: RunOptions,
   cwd: string,
   transcriptBlock: string,
+  harnessSessionId: string,
 ): Promise<RunResult> {
   const adapter = getAdapter(agentName, agentConfig);
 
@@ -101,21 +110,29 @@ async function invokeAgent(
   const budget = opts.budget ?? agentConfig.budget_daily;
   if (budget != null && budget > 0) {
     const spent = todaySpend(agentName);
-    if (spent >= budget) {
+    if (spent > budget) {
       console.error(`${c.red("✗")} ${agentName}: daily budget $${budget.toFixed(2)} reached ($${spent.toFixed(4)} spent today)`);
       return failResult("error");
     }
-    if (spent > 0.8 * budget) {
+    if (spent > BUDGET_WARNING_THRESHOLD * budget) {
       console.error(c.yellow(`⚠ ${agentName}: $${spent.toFixed(4)} of $${budget.toFixed(2)} daily budget used`));
     }
   }
 
-  // Session resume (same agent only)
+  // Session resume: look up agent's native session ID from harness session
   let resumeId: string | undefined;
   if (opts.resume) {
-    const agentSession = loadSession(cwd, agentName);
-    if (agentSession?.sessionId) resumeId = agentSession.sessionId;
+    if (opts.harnessSessionId) {
+      const session = loadSession(cwd, opts.harnessSessionId);
+      if (session) {
+        const lastRun = latestRunForAgent(session, agentName);
+        if (lastRun?.agentSessionId) resumeId = lastRun.agentSessionId;
+      }
+    }
   }
+
+  // Snapshot git HEAD before the run (for changed-files diffing)
+  const preCommitSha = getHeadSha(cwd);
 
   const prompt = buildPrompt(opts.prompt, opts, cwd, transcriptBlock);
 
@@ -133,15 +150,48 @@ async function invokeAgent(
   header(c.bold("harnessctl"), [agentName, auth.message, cwdShort]);
   rule();
 
+  const startedAt = Date.now();
   const result = await invoke(adapter, intent, agentConfig);
 
-  // Save session
-  saveSession(cwd, agentName, result.sessionId, result.summary);
-
   // Write run log (with raw user prompt, not the augmented one)
-  writeRunLog(agentName, opts.prompt, cwd, result, {
+  const runId = writeRunLog(agentName, opts.prompt, cwd, result, {
     model: agentConfig.model,
     extraArgs: opts.extraArgs,
+    harnessSessionId,
+    parentRunId: opts.parentRunId,
+  });
+
+  // Add run to harness session
+  const changedFiles = getChangedFiles(cwd, preCommitSha);
+  const sessionRun: HarnessSessionRun = {
+    runId,
+    agent: agentName,
+    agentSessionId: result.sessionId,
+    summary: result.summary ?? "",
+    timestamp: new Date().toISOString(),
+    parentRunId: opts.parentRunId,
+    preCommitSha,
+  };
+  addRun(cwd, harnessSessionId, sessionRun);
+
+  // Write handoff context file
+  let turns: import("../adapters/types.ts").Turn[] = [];
+  try {
+    if (adapter.extractTranscript) {
+      turns = await adapter.extractTranscript(cwd, result.sessionId, startedAt);
+    }
+  } catch { /* best effort */ }
+  ensureGitignore(cwd);
+  writeHandoffFile(cwd, {
+    runId,
+    agent: agentName,
+    sessionId: result.sessionId,
+    prompt: opts.prompt,
+    summary: result.summary ?? "",
+    duration: result.duration,
+    timestamp: sessionRun.timestamp,
+    changedFiles,
+    turns,
   });
 
   // Result footer
@@ -159,6 +209,7 @@ async function invokeAgent(
   const icon = result.exitCode === 0 && result.exitReason !== "rate_limit" && result.exitReason !== "token_limit"
     ? c.green("✓") : c.red("✗");
   footer([`${icon} ${agentName}`, ...stats]);
+  console.error(c.dim(`  run: ${runId}  session: ${harnessSessionId}`));
 
   // Ensure exitReason is always set (defensive — invoke() already sets it).
   if (!result.exitReason) result.exitReason = result.exitCode === 0 ? "success" : "error";
@@ -168,34 +219,6 @@ async function invokeAgent(
 /** True if the reason justifies a silent automatic handoff. */
 function isLimitReason(r: ExitReason): boolean {
   return r === "rate_limit" || r === "token_limit" || r === "auth_error";
-}
-
-/** Extract & format a transcript from the failed agent for the next agent. */
-async function buildTranscriptBlock(
-  failedAgentName: string,
-  failedAgentConfig: AgentConfig,
-  failedResult: RunResult,
-  nextAgentName: string,
-  nextAgentConfig: AgentConfig,
-  cwd: string,
-  startedAt: number,
-): Promise<string> {
-  const summaryBlock = failedResult.summary
-    ? `Previous context from ${failedAgentName}:\n${failedResult.summary}\n`
-    : "";
-  const mode = failedAgentConfig.failover_transfer ?? "transcript";
-  if (mode === "summary") return summaryBlock;
-  try {
-    const adapter = getAdapter(failedAgentName, failedAgentConfig);
-    if (!adapter.extractTranscript) return summaryBlock;
-    const turns: Turn[] = await adapter.extractTranscript(cwd, failedResult.sessionId, startedAt);
-    if (!turns.length) return summaryBlock;
-    const nextAdapter = getAdapter(nextAgentName, nextAgentConfig);
-    const maxTokens = Math.floor((nextAdapter.contextWindow ?? 100_000) * 0.4);
-    return formatTranscript(turns, { maxTokens, fromAgent: failedAgentName });
-  } catch {
-    return summaryBlock;
-  }
 }
 
 /**
@@ -209,6 +232,7 @@ async function runWithFallback(
   cwd: string,
   transcriptBlock: string,
   visited: Set<string>,
+  harnessSessionId: string,
 ): Promise<number> {
   if (visited.has(agentName)) {
     console.error(c.yellow(`⚠ fallback cycle detected at "${agentName}", stopping`));
@@ -217,7 +241,7 @@ async function runWithFallback(
   visited.add(agentName);
 
   const agentConfig = loadAgentConfig(agentName);
-  const result = await invokeAgent(agentName, agentConfig, opts, cwd, transcriptBlock);
+  const result = await invokeAgent(agentName, agentConfig, opts, cwd, transcriptBlock, harnessSessionId);
   const exitCode = result.exitCode ?? 1;
   const exitReason = result.exitReason ?? "error";
 
@@ -225,6 +249,12 @@ async function runWithFallback(
 
   const fallbackName = agentConfig.fallback;
   if (!fallbackName) return exitCode;
+
+  if (!isKnownAgent(fallbackName, listAdapterNames())) {
+    console.error(`${c.red("✗")} fallback agent "${fallbackName}" is not configured or installed`);
+    console.error(c.dim(`  tip: check ~/.harnessctl/agents/${fallbackName}.yaml or run "harnessctl doctor"`));
+    return exitCode;
+  }
 
   separator();
   const auto = agentConfig.auto_failover === true && isLimitReason(exitReason);
@@ -253,8 +283,8 @@ async function runWithFallback(
   );
 
   console.error(c.dim(`  handing off to ${fallbackName}...`));
-  const nextOpts: RunOptions = { ...opts, agent: fallbackName, resume: false };
-  return runWithFallback(fallbackName, nextOpts, cwd, nextTranscript, visited);
+  const nextOpts: RunOptions = { ...opts, agent: fallbackName, resume: false, harnessSessionId };
+  return runWithFallback(fallbackName, nextOpts, cwd, nextTranscript, visited, harnessSessionId);
 }
 
 export async function runCommand(opts: RunOptions): Promise<number> {
@@ -278,23 +308,46 @@ export async function runCommand(opts: RunOptions): Promise<number> {
     return 1;
   }
 
-  // Honor handoff from last session (only when user asked --resume and it's a different agent).
+  const cwd = process.cwd();
+
+  // Determine harness session: reuse from handoff or create new
+  let harnessSessionId = opts.harnessSessionId;
+  if (!harnessSessionId) {
+    // If --resume, try to find the latest session for this cwd and agent
+    if (opts.resume) {
+      const latest = loadLatestSession(cwd);
+      if (latest) {
+        const lastRun = latest.runs[latest.runs.length - 1];
+        if (lastRun) {
+          harnessSessionId = latest.id;
+          opts.harnessSessionId = harnessSessionId;
+        }
+      }
+    }
+    // Still no session → create a fresh one
+    if (!harnessSessionId) {
+      const session = createSession(cwd);
+      harnessSessionId = session.id;
+    }
+  }
+
+  // Honor handoff from last session (only when --resume and it's a different agent).
   let initialTranscript = "";
   if (opts.resume) {
-    const agentSession = loadSession(process.cwd(), agentName);
-    if (!agentSession?.sessionId) {
-      const last = loadLastSession(process.cwd());
-      if (last && last.agent !== agentName && last.summary) {
-        initialTranscript = `Previous context from ${last.agent}:\n${last.summary}\n`;
+    const latest = loadLatestSession(cwd);
+    if (latest) {
+      const lastRun = latest.runs[latest.runs.length - 1];
+      if (lastRun && lastRun.agent !== agentName && lastRun.summary) {
+        initialTranscript = `Previous context from ${lastRun.agent}:\n${lastRun.summary}\n`;
       }
     }
   }
 
-  const cwd = process.cwd();
   try {
-    return await runWithFallback(agentName, opts, cwd, initialTranscript, new Set());
-  } catch (err: any) {
-    console.error(`${c.red("✗")} ${err.message}`);
+    return await runWithFallback(agentName, opts, cwd, initialTranscript, new Set(), harnessSessionId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`${c.red("✗")} ${message}`);
     return 1;
   }
 }

@@ -1,6 +1,10 @@
 import { spawn } from "node:child_process";
 import { loadConfig, loadAgentConfig, resolveEnv, isKnownAgent } from "../config.ts";
 import { getAdapter, checkAuth, listAdapterNames } from "../adapters/registry.ts";
+import { createSession, addRun } from "../session.ts";
+import type { HarnessSessionRun } from "../session.ts";
+import { writeRunLog } from "../log.ts";
+import { writeHandoffFile, getHeadSha, getChangedFiles, ensureGitignore } from "../lib/handoff.ts";
 import { header, separator, c, askConfirm } from "../ui.ts";
 
 export interface ShellOptions {
@@ -64,6 +68,80 @@ function buildShellArgs(agentName: string, agentConfig: ReturnType<typeof loadAg
   return args;
 }
 
+/** Post-shell: discover session from agent logs, save session + run log + handoff file. */
+async function trackShellSession(
+  agentName: string,
+  agentConfig: ReturnType<typeof loadAgentConfig>,
+  cwd: string,
+  startedAt: number,
+  exitCode: number,
+  preCommitSha?: string,
+): Promise<void> {
+  const adapter = getAdapter(agentName, agentConfig);
+  const duration = (Date.now() - startedAt) / 1000;
+
+  // Discover native session ID from agent's on-disk logs
+  let agentSessionId: string | undefined;
+  let discoverSummary: string | undefined;
+  try {
+    if (adapter.discoverSession) {
+      const disc = await adapter.discoverSession(cwd, startedAt);
+      agentSessionId = disc.sessionId;
+      discoverSummary = disc.summary;
+    }
+  } catch { /* best effort */ }
+
+  // Extract transcript if possible
+  let turns: import("../adapters/types.ts").Turn[] = [];
+  try {
+    if (adapter.extractTranscript) {
+      turns = await adapter.extractTranscript(cwd, agentSessionId, startedAt);
+    }
+  } catch { /* best effort */ }
+
+  // Build summary from transcript or discovery
+  let summary = discoverSummary ?? "";
+  if (!summary && turns.length > 0) {
+    const lastAssistant = [...turns].reverse().find((t) => t.role === "assistant");
+    if (lastAssistant) summary = lastAssistant.content.slice(0, 200);
+  }
+  if (!summary) summary = "(interactive shell)";
+
+  // Create harness session
+  const session = createSession(cwd);
+  const result = { exitCode, summary, sessionId: agentSessionId, duration, exitReason: exitCode === 0 ? "success" as const : "error" as const };
+
+  const runId = writeRunLog(agentName, "(interactive shell)", cwd, result, {
+    harnessSessionId: session.id,
+  });
+
+  const changedFiles = getChangedFiles(cwd, preCommitSha);
+  const sessionRun: HarnessSessionRun = {
+    runId,
+    agent: agentName,
+    agentSessionId,
+    summary,
+    timestamp: new Date().toISOString(),
+    preCommitSha,
+  };
+  addRun(cwd, session.id, sessionRun);
+
+  ensureGitignore(cwd);
+  writeHandoffFile(cwd, {
+    runId,
+    agent: agentName,
+    sessionId: agentSessionId,
+    prompt: "(interactive shell)",
+    summary,
+    duration,
+    timestamp: sessionRun.timestamp,
+    changedFiles,
+    turns,
+  });
+
+  console.error(c.dim(`  run: ${runId}  session: ${session.id}`));
+}
+
 export async function shellCommand(opts: ShellOptions): Promise<number> {
   const globalConfig = loadConfig();
   const agentName = opts.agent ?? globalConfig.default_agent;
@@ -113,7 +191,14 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
   header(c.bold("harnessctl shell"), [agentName, auth.message]);
   separator();
 
+  const cwd = process.cwd();
+  const preCommitSha = getHeadSha(cwd);
+  const startedAt = Date.now();
+
   const exitCode = await launchShell(agentName, env, args);
+
+  // Post-shell session tracking: discover session from agent logs
+  await trackShellSession(agentName, agentConfig, cwd, startedAt, exitCode, preCommitSha);
 
   // Agent exited cleanly — done
   if (exitCode === 0) return 0;

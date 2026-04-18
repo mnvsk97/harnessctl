@@ -1,9 +1,9 @@
 import { describe, test, expect, mock, beforeEach } from "bun:test";
+import type { RunResult, InvokeIntent } from "../adapters/types.ts";
 
-let invokeResults: any[] = [];
-const invokeCalls: any[] = [];
-const savedSessions: any[] = [];
-const loggedRuns: any[] = [];
+let invokeResults: Partial<RunResult>[] = [];
+const invokeCalls: InvokeIntent[] = [];
+const loggedRuns: unknown[][] = [];
 
 mock.module("../config.ts", () => ({
   loadConfig: () => ({ default_agent: "claude" }),
@@ -11,8 +11,10 @@ mock.module("../config.ts", () => ({
   resolveEnv: (env: Record<string, string>) => env,
   isKnownAgent: (name: string) => ["claude", "codex", "opencode", "cursor"].includes(name),
   RUNS_DIR: "/tmp/harnessctl-test/runs",
+  SESSIONS_DIR: "/tmp/harnessctl-test/sessions",
   PROJECTS_DIR: "/tmp/harnessctl-test/projects",
   TEMPLATES_DIR: "/tmp/harnessctl-test/templates",
+  ensureInit: () => {},
 }));
 
 mock.module("../lib/context.ts", () => ({ getContext: () => "" }));
@@ -21,7 +23,14 @@ mock.module("../lib/templates.ts", () => ({
   interpolate: (tpl: string) => tpl,
 }));
 mock.module("../lib/budget.ts", () => ({ todaySpend: () => 0 }));
-mock.module("../lib/transcript.ts", () => ({ formatTranscript: () => "" }));
+mock.module("../lib/handoff.ts", () => ({
+  writeHandoffFile: () => {},
+  getHeadSha: () => undefined,
+  getChangedFiles: () => [],
+  ensureGitignore: () => {},
+  buildHandoffPrompt: () => "",
+}));
+mock.module("../lib/transcript.ts", () => ({ formatTranscript: () => "", buildTranscriptBlock: async () => "" }));
 
 mock.module("../adapters/registry.ts", () => ({
   getAdapter: () => ({
@@ -33,20 +42,29 @@ mock.module("../adapters/registry.ts", () => ({
 }));
 
 mock.module("../invoke.ts", () => ({
-  invoke: async (_adapter: any, intent: any) => {
+  invoke: async (_adapter: unknown, intent: InvokeIntent) => {
     invokeCalls.push(intent);
     return invokeResults.shift() ?? { exitCode: 0, summary: "", duration: 0.1 };
   },
 }));
 
 mock.module("../session.ts", () => ({
-  saveSession: (...args: any[]) => savedSessions.push(args),
-  loadSession: () => ({ sessionId: "sess-123" }),
-  loadLastSession: () => null,
+  createSession: () => ({ id: "test1234", cwdHash: "abc", createdAt: new Date().toISOString(), runs: [] }),
+  addRun: () => {},
+  loadSession: () => ({
+    id: "test1234", cwdHash: "abc", createdAt: new Date().toISOString(),
+    runs: [{ runId: "r1", agent: "claude", agentSessionId: "sess-123", summary: "", timestamp: "" }],
+  }),
+  loadLatestSession: () => ({
+    id: "test1234", cwdHash: "abc", createdAt: new Date().toISOString(),
+    runs: [{ runId: "r1", agent: "claude", agentSessionId: "sess-123", summary: "", timestamp: "" }],
+  }),
+  latestRunForAgent: () => ({ runId: "r1", agent: "claude", agentSessionId: "sess-123", summary: "", timestamp: "" }),
+  findSessionByRunId: () => null,
 }));
 
 mock.module("../log.ts", () => ({
-  writeRunLog: (...args: any[]) => loggedRuns.push(args),
+  writeRunLog: (...args: unknown[]) => { loggedRuns.push(args); return "1713364500000-claude"; },
 }));
 
 mock.module("../lib/stats.ts", () => ({
@@ -74,7 +92,6 @@ const { runCommand } = await import("./run.ts");
 beforeEach(() => {
   invokeResults = [];
   invokeCalls.length = 0;
-  savedSessions.length = 0;
   loggedRuns.length = 0;
 });
 

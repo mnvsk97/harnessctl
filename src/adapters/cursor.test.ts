@@ -68,7 +68,7 @@ describe("cursor adapter – authCheck", () => {
   test("reports failure on non-zero exit", () => {
     const result = parse("", "error: unauthenticated", 1);
     expect(result.ok).toBe(false);
-    expect(result.message).toContain("cursor-agent login");
+    expect(result.message).toContain("agent login");
   });
 
   test("reports failure when output contains 'not logged in'", () => {
@@ -78,8 +78,8 @@ describe("cursor adapter – authCheck", () => {
 });
 
 describe("cursor adapter – base and argMap", () => {
-  test("base command is cursor-agent with headless flags", () => {
-    expect(cursorAdapter.base.cmd).toBe("cursor-agent");
+  test("base command is agent with headless flags", () => {
+    expect(cursorAdapter.base.cmd).toBe("agent");
     expect(cursorAdapter.base.args).toContain("-p");
     expect(cursorAdapter.base.args).toContain("--force");
     expect(cursorAdapter.base.args).toContain("--output-format");
@@ -96,9 +96,9 @@ describe("cursor adapter – base and argMap", () => {
     expect(args).toEqual(["--resume", "sess-xyz"]);
   });
 
-  test("healthCheck uses cursor-agent --version", () => {
+  test("healthCheck uses agent --version", () => {
     const hc = cursorAdapter.healthCheck();
-    expect(hc.cmd).toBe("cursor-agent");
+    expect(hc.cmd).toBe("agent");
     expect(hc.args).toContain("--version");
   });
 });

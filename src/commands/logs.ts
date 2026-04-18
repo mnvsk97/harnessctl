@@ -61,14 +61,22 @@ export function logsCommand(args: string[]): void {
     return;
   }
 
-  for (const { log } of entries) {
+  for (const { file, log } of entries) {
+    const runId = file.replace(/\.json$/, "");
+    const runIdDisplay = c.bold(runId.padEnd(28));
     const ts = c.dim(formatTimestamp(log.timestamp));
     const agent = c.cyan(log.agent.padEnd(10));
     const status = log.result.exitCode === 0 ? c.green("✓") : c.red("✗");
     const cost = log.result.cost !== undefined ? `$${log.result.cost.toFixed(4)}` : "—";
     const duration = `${log.result.duration.toFixed(1)}s`;
-    const prompt = c.dim(`"${truncate(log.prompt, 50)}"`);
-    console.log(`${ts}  ${agent}  ${status}  ${cost.padStart(8)}  ${duration.padStart(6)}  ${prompt}`);
+    const sessionTag = (log as Record<string, unknown>).harnessSessionId
+      ? c.dim(` [${(log as Record<string, unknown>).harnessSessionId}]`)
+      : "";
+    const parentTag = (log as Record<string, unknown>).parentRunId
+      ? c.dim(` ← ${(log as Record<string, unknown>).parentRunId}`)
+      : "";
+    const prompt = c.dim(`"${truncate(log.prompt, 40)}"`);
+    console.log(`${runIdDisplay}  ${ts}  ${agent}  ${status}  ${cost.padStart(8)}  ${duration.padStart(6)}  ${prompt}${sessionTag}${parentTag}`);
   }
 
   separator();

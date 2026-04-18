@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import type { Adapter, AuthCheckResult, ExitReason, RunResult, Turn } from "./types.ts";
 import { defaultDetectExitReason } from "./_shared.ts";
@@ -8,10 +8,10 @@ function extractText(raw: unknown): string {
   if (typeof raw === "string") return raw;
   if (!Array.isArray(raw)) return "";
   return raw
-    .map((c: any) => {
+    .map((c: Record<string, unknown>) => {
       if (typeof c === "string") return c;
       if (c?.type === "text" && typeof c.text === "string") return c.text;
-      if (c?.type === "tool_use") return `[tool: ${c.name ?? "?"}]`;
+      if (c?.type === "tool_use") return `[tool: ${(c.name as string) ?? "?"}]`;
       if (c?.type === "tool_result") return `[tool_result]`;
       return "";
     })
@@ -53,7 +53,7 @@ export const claudeAdapter: Adapter = {
             };
           }
         }
-      } catch { /* non-JSON */ }
+      } catch { /* non-JSON line in stream output */ }
     }
 
     if (!result.summary) {
@@ -69,17 +69,25 @@ export const claudeAdapter: Adapter = {
 
   detectExitReason(stdout: string, stderr: string, exitCode: number | null): ExitReason {
     // Claude stream-json can exit 0 yet signal an error inside a result event.
+    let hasSuccessResult = false;
     for (const line of stdout.split("\n")) {
       if (!line.trim()) continue;
       try {
         const ev = JSON.parse(line);
-        if (ev.type === "result" && ev.is_error) {
-          const sub = (ev.subtype ?? "").toString();
-          if (/rate|quota|limit|usage/i.test(sub)) return "rate_limit";
-          if (/context|token|max_turns/i.test(sub)) return "token_limit";
+        if (ev.type === "result") {
+          if (ev.is_error) {
+            const sub = (ev.subtype ?? "").toString();
+            if (/rate|quota|limit|usage/i.test(sub)) return "rate_limit";
+            if (/context|token|max_turns/i.test(sub)) return "token_limit";
+          } else {
+            hasSuccessResult = true;
+          }
         }
-      } catch {}
+      } catch { /* non-JSON line in stream output */ }
     }
+    // If we got a successful result event, trust it over regex-based detection
+    // (Claude's JSON output contains fields like "contextWindow" that false-match).
+    if (hasSuccessResult) return "success";
     return defaultDetectExitReason(stdout, stderr, exitCode);
   },
 
@@ -90,12 +98,12 @@ export const claudeAdapter: Adapter = {
     try {
       projectDirs = readdirSync(projectsDir, { withFileTypes: true })
         .filter((d) => d.isDirectory()).map((d) => d.name);
-    } catch { return []; }
+    } catch { return []; /* projects dir missing or unreadable */ }
 
     for (const dir of projectDirs) {
       const path = `${projectsDir}/${dir}/${sessionId}.jsonl`;
       let content: string;
-      try { content = readFileSync(path, "utf8"); } catch { continue; }
+      try { content = readFileSync(path, "utf8"); } catch { continue; /* session file not in this project dir */ }
 
       const turns: Turn[] = [];
       for (const line of content.split("\n")) {
@@ -107,7 +115,7 @@ export const claudeAdapter: Adapter = {
           if (role !== "user" && role !== "assistant") continue;
           const text = extractText(raw);
           if (text) turns.push({ role, content: text });
-        } catch {}
+        } catch { /* skip malformed JSONL line */ }
       }
       return turns;
     }
@@ -121,12 +129,12 @@ export const claudeAdapter: Adapter = {
     try {
       projectDirs = readdirSync(projectsDir, { withFileTypes: true })
         .filter(d => d.isDirectory()).map(d => d.name);
-    } catch { return {}; }
+    } catch { return {}; /* projects dir missing or unreadable */ }
 
     for (const dir of projectDirs) {
       const sessionPath = `${projectsDir}/${dir}/${result.sessionId}.jsonl`;
       let content: string;
-      try { content = readFileSync(sessionPath, "utf8"); } catch { continue; }
+      try { content = readFileSync(sessionPath, "utf8"); } catch { continue; /* session file not in this project dir */ }
 
       let cacheWrite = 0;
       let cacheRead = 0;
@@ -139,7 +147,7 @@ export const claudeAdapter: Adapter = {
             cacheWrite += u.cache_creation_input_tokens ?? 0;
             cacheRead  += u.cache_read_input_tokens ?? 0;
           }
-        } catch {}
+        } catch { /* skip malformed JSONL line */ }
       }
 
       if (cacheWrite > 0 || cacheRead > 0) {
@@ -157,8 +165,50 @@ export const claudeAdapter: Adapter = {
     return {};
   },
 
+  async discoverSession(_cwd: string, startedAt: number): Promise<{ sessionId?: string; summary?: string }> {
+    const projectsDir = `${homedir()}/.claude/projects`;
+    let projectDirs: string[];
+    try {
+      projectDirs = readdirSync(projectsDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory()).map((d) => d.name);
+    } catch { return {}; }
+
+    let best: { sessionId: string; mtime: number } | null = null;
+    for (const dir of projectDirs) {
+      let files: string[];
+      try { files = readdirSync(`${projectsDir}/${dir}`); } catch { continue; }
+      for (const file of files) {
+        if (!file.endsWith(".jsonl")) continue;
+        const full = `${projectsDir}/${dir}/${file}`;
+        try {
+          const mtime = statSync(full).mtimeMs;
+          if (mtime >= startedAt && (!best || mtime > best.mtime)) {
+            best = { sessionId: file.replace(/\.jsonl$/, ""), mtime };
+          }
+        } catch { continue; }
+      }
+    }
+    return best ? { sessionId: best.sessionId } : {};
+  },
+
   healthCheck() {
     return { cmd: "claude", args: ["--version"] };
+  },
+
+  listModels() {
+    return {
+      static: [
+        "sonnet           → latest Sonnet (currently Sonnet 4.6)",
+        "opus             → latest Opus (currently Opus 4.6)",
+        "haiku            → latest Haiku",
+        "sonnet[1m]       → Sonnet with 1M context",
+        "opus[1m]         → Opus with 1M context",
+        "claude-sonnet-4-6",
+        "claude-opus-4-6",
+        "claude-sonnet-4-5",
+        "claude-haiku-4-5",
+      ],
+    };
   },
 
   authCheck() {

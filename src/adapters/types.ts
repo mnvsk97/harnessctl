@@ -91,10 +91,21 @@ export interface Adapter {
    * agent when auto-failover fires. Must never throw; return [] on any error.
    */
   extractTranscript?(cwd: string, sessionId: string | undefined, startedAt: number): Promise<Turn[]>;
+  /**
+   * Optional: recover the native session ID (and optionally a summary) from
+   * the agent's on-disk logs after an interactive shell session. Used when
+   * harnessctl cannot capture output (stdio: "inherit"). Must never throw.
+   */
+  discoverSession?(cwd: string, startedAt: number): Promise<{ sessionId?: string; summary?: string }>;
   /** Command to check if the agent is installed */
   healthCheck(): { cmd: string; args: string[] };
   /** Check if authentication is configured and valid */
   authCheck(): { cmd: string; args: string[]; parse: (stdout: string, stderr: string, exitCode: number | null) => AuthCheckResult };
+  /**
+   * Optional: list available models for this agent.
+   * Returns a command to run, or a static list of known model names.
+   */
+  listModels?(): { cmd: string; args: string[] } | { static: string[] };
 }
 
 export interface AgentConfig {

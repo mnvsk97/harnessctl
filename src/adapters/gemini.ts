@@ -1,4 +1,6 @@
-import type { Adapter, AuthCheckResult, RunResult } from "./types.ts";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import type { Adapter, AuthCheckResult, RunResult, Turn } from "./types.ts";
 import { defaultDetectExitReason } from "./_shared.ts";
 
 export const geminiAdapter: Adapter = {
@@ -48,9 +50,7 @@ export const geminiAdapter: Adapter = {
             output: s.output_tokens ?? 0,
           };
         }
-      } catch {
-        // non-JSON line — part of streamed text output
-      }
+      } catch { /* non-JSON line in stream output */ }
     }
 
     if (assistantChunks.length > 0) {
@@ -67,6 +67,130 @@ export const geminiAdapter: Adapter = {
     }
 
     return result;
+  },
+
+  async postRun(_cwd: string, result: RunResult, startedAt: number): Promise<Partial<RunResult>> {
+    if (!result.sessionId) return {};
+    // Gemini CLI stores session logs under ~/.gemini/sessions/
+    const sessionsDir = `${homedir()}/.gemini/sessions`;
+    let entries: ReturnType<typeof readdirSync>;
+    try { entries = readdirSync(sessionsDir, { withFileTypes: true }); } catch { return {}; }
+
+    for (const entry of entries) {
+      const sessionPath = entry.isDirectory()
+        ? `${sessionsDir}/${entry.name}/${result.sessionId}.jsonl`
+        : entry.name === `${result.sessionId}.jsonl`
+          ? `${sessionsDir}/${entry.name}`
+          : null;
+      if (!sessionPath) continue;
+
+      let content: string;
+      try { content = readFileSync(sessionPath, "utf8"); } catch { continue; }
+
+      let totalInput = 0;
+      let totalOutput = 0;
+      for (const line of content.split("\n")) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          const u = msg.usage ?? msg.stats;
+          if (u) {
+            totalInput += u.input_tokens ?? u.prompt_tokens ?? 0;
+            totalOutput += u.output_tokens ?? u.completion_tokens ?? 0;
+          }
+        } catch { /* skip malformed lines */ }
+      }
+
+      if ((totalInput > 0 || totalOutput > 0) && !result.tokens) {
+        return { tokens: { input: totalInput, output: totalOutput } };
+      }
+      return {};
+    }
+    return {};
+  },
+
+  async extractTranscript(_cwd: string, sessionId: string | undefined, startedAt: number): Promise<Turn[]> {
+    if (!sessionId) return [];
+    const sessionsDir = `${homedir()}/.gemini/sessions`;
+    let entries: ReturnType<typeof readdirSync>;
+    try { entries = readdirSync(sessionsDir, { withFileTypes: true }); } catch { return []; }
+
+    for (const entry of entries) {
+      const sessionPath = entry.isDirectory()
+        ? `${sessionsDir}/${entry.name}/${sessionId}.jsonl`
+        : entry.name === `${sessionId}.jsonl`
+          ? `${sessionsDir}/${entry.name}`
+          : null;
+      if (!sessionPath) continue;
+
+      let content: string;
+      try { content = readFileSync(sessionPath, "utf8"); } catch { continue; }
+
+      // Verify the file was written during this run
+      try {
+        const mtime = statSync(sessionPath).mtimeMs;
+        if (mtime < startedAt) continue;
+      } catch { continue; }
+
+      const turns: Turn[] = [];
+      for (const line of content.split("\n")) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          const role = msg.role ?? msg.message?.role;
+          const text = msg.content ?? msg.message?.content ?? msg.text;
+          if ((role === "user" || role === "assistant") && typeof text === "string" && text.trim()) {
+            turns.push({ role, content: text });
+          }
+        } catch { /* skip malformed lines */ }
+      }
+      return turns;
+    }
+    return [];
+  },
+
+  async discoverSession(_cwd: string, startedAt: number): Promise<{ sessionId?: string; summary?: string }> {
+    const sessionsDir = `${homedir()}/.gemini/sessions`;
+    let entries: ReturnType<typeof readdirSync>;
+    try { entries = readdirSync(sessionsDir, { withFileTypes: true }); } catch { return {}; }
+
+    let best: { sessionId: string; mtime: number } | null = null;
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        let files: string[];
+        try { files = readdirSync(`${sessionsDir}/${entry.name}`); } catch { continue; }
+        for (const file of files) {
+          if (!file.endsWith(".jsonl")) continue;
+          const full = `${sessionsDir}/${entry.name}/${file}`;
+          try {
+            const mtime = statSync(full).mtimeMs;
+            if (mtime >= startedAt && (!best || mtime > best.mtime)) {
+              best = { sessionId: file.replace(/\.jsonl$/, ""), mtime };
+            }
+          } catch { continue; }
+        }
+      } else if (entry.name.endsWith(".jsonl")) {
+        const full = `${sessionsDir}/${entry.name}`;
+        try {
+          const mtime = statSync(full).mtimeMs;
+          if (mtime >= startedAt && (!best || mtime > best.mtime)) {
+            best = { sessionId: entry.name.replace(/\.jsonl$/, ""), mtime };
+          }
+        } catch { continue; }
+      }
+    }
+    return best ? { sessionId: best.sessionId } : {};
+  },
+
+  listModels() {
+    return {
+      static: [
+        "gemini-3-pro-preview",
+        "gemini-3-flash-preview",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+      ],
+    };
   },
 
   healthCheck() {

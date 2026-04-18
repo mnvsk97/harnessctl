@@ -38,7 +38,28 @@ mock.module("../config.ts", () => ({
   isKnownAgent: (name: string) => ["claude", "codex", "opencode", "cursor"].includes(name),
   HARNESS_DIR: "/tmp/harnessctl-test",
   AGENTS_DIR: "/tmp/harnessctl-test/agents",
+  SESSIONS_DIR: "/tmp/harnessctl-test/sessions",
   RUNS_DIR: "/tmp/harnessctl-test/runs",
+  ensureInit: () => {},
+}));
+
+// Mock session, log, and handoff modules
+mock.module("../session.ts", () => ({
+  createSession: () => ({ id: "test1234", cwdHash: "abc", createdAt: new Date().toISOString(), runs: [] }),
+  addRun: () => {},
+  loadSession: () => null,
+  loadLatestSession: () => null,
+  findSessionByRunId: () => null,
+  latestRunForAgent: () => undefined,
+}));
+mock.module("../log.ts", () => ({
+  writeRunLog: () => "1713364500000-codex",
+}));
+mock.module("../lib/handoff.ts", () => ({
+  writeHandoffFile: () => {},
+  getHeadSha: () => undefined,
+  getChangedFiles: () => [],
+  ensureGitignore: () => {},
 }));
 
 // Mock registry — return minimal adapters, controlled auth

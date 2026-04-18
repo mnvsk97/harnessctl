@@ -37,9 +37,7 @@ export const opencodeAdapter: Adapter = {
             };
           }
         }
-      } catch {
-        // plain text
-      }
+      } catch { /* non-JSON line in stream output */ }
     }
 
     if (!result.summary) {
@@ -58,14 +56,16 @@ export const opencodeAdapter: Adapter = {
     try {
       // Filter to sessions updated after this run started. OpenCode may store
       // updated_at as Unix milliseconds (JS) or seconds; handle both by
-      // matching either scale. Modern Unix seconds are ~1.7e9, so values
-      // >= 2e9 are milliseconds.
+      // matching either scale. We detect the scale by comparing against a
+      // reasonable millisecond floor (1e12, i.e. ~2001 in ms) — values below
+      // that are seconds.
       const startMs = startedAt;
       const startSec = Math.floor(startedAt / 1000);
+      const MS_FLOOR = 1_000_000_000_000; // 1e12: timestamps above this are milliseconds
       const sql =
         "SELECT id, cost, prompt_tokens, completion_tokens FROM sessions " +
         `WHERE (updated_at >= ${startMs}) ` +
-        `   OR (updated_at >= ${startSec} AND updated_at < 2000000000) ` +
+        `   OR (updated_at >= ${startSec} AND updated_at < ${MS_FLOOR}) ` +
         "ORDER BY updated_at DESC LIMIT 1";
 
       const proc = spawnSync("sqlite3", [dbPath, "-json", sql], { encoding: "utf8" });
@@ -84,7 +84,32 @@ export const opencodeAdapter: Adapter = {
       const outputTok = Number(row.completion_tokens);
       if (inputTok > 0 || outputTok > 0) enriched.tokens = { input: inputTok, output: outputTok };
       return enriched;
-    } catch { return {}; }
+    } catch { return {}; /* sqlite3 unavailable or DB missing */ }
+  },
+
+  async discoverSession(_cwd: string, startedAt: number): Promise<{ sessionId?: string; summary?: string }> {
+    const dbPath = `${homedir()}/.local/share/opencode/opencode.db`;
+    try {
+      const startMs = startedAt;
+      const startSec = Math.floor(startedAt / 1000);
+      const MS_FLOOR = 1_000_000_000_000;
+      const sql =
+        "SELECT id FROM sessions " +
+        `WHERE (updated_at >= ${startMs}) ` +
+        `   OR (updated_at >= ${startSec} AND updated_at < ${MS_FLOOR}) ` +
+        "ORDER BY updated_at DESC LIMIT 1";
+      const proc = spawnSync("sqlite3", [dbPath, "-json", sql], { encoding: "utf8" });
+      if (proc.status !== 0 || !proc.stdout?.trim()) return {};
+      const rows = JSON.parse(proc.stdout.trim());
+      if (Array.isArray(rows) && rows.length > 0 && rows[0].id) {
+        return { sessionId: rows[0].id };
+      }
+    } catch { /* sqlite3 unavailable */ }
+    return {};
+  },
+
+  listModels() {
+    return { cmd: "opencode", args: ["models"] };
   },
 
   healthCheck() {

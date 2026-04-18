@@ -11,6 +11,8 @@ import { logsCommand } from "./commands/logs.ts";
 import { compareCommand } from "./commands/compare.ts";
 import { contextCommand } from "./commands/context.ts";
 import { replayCommand } from "./commands/replay.ts";
+import { modelsCommand } from "./commands/models.ts";
+import { handoffCommand } from "./commands/handoff.ts";
 
 const USAGE = `harnessctl — universal coding agent CLI
 
@@ -20,12 +22,15 @@ Usage:
                  [--template <name>] [--budget <usd>] <prompt> [-- <extra-args>...]
   harnessctl shell [--agent <name>] [-- <extra-args>...]
   harnessctl compare <prompt> [--agents <a,b,...>] [-- <extra-args>...]
+  harnessctl handoff <run-id> --agent <name> [--resume|--fork]
+                     [--budget <usd>] <prompt>
   harnessctl replay <run-id>
   harnessctl context get|set|edit|clear|sync|path
   harnessctl list
   harnessctl stats [--cost]
   harnessctl logs [--agent <name>] [--limit N]
   harnessctl doctor [--mcp]
+  harnessctl models --agent <name>
   harnessctl config get|set|set-fallback|get-fallback|remove-fallback ...
 
 Options:
@@ -45,6 +50,7 @@ Auto-failover:
 
 Examples:
   harnessctl run "fix the auth bug"
+  harnessctl handoff 1713364500000-claude --agent codex "add tests for that"
   harnessctl run --agent codex --resume "add tests for that"
   harnessctl run --template code-review "src/auth.ts"
   harnessctl run --budget 2.00 "refactor the payment module"
@@ -83,12 +89,19 @@ async function main() {
       for (let i = 0; i < args.length; i++) {
         if (pastSeparator) { extraArgs.push(args[i]); continue; }
         if (args[i] === "--") { pastSeparator = true; continue; }
-        if (args[i] === "--agent" || args[i] === "-a") { agent = args[++i]; continue; }
+        if (args[i] === "--agent" || args[i] === "-a") {
+          if (i + 1 >= args.length) { console.error("Error: --agent requires a value"); process.exit(1); }
+          agent = args[++i]; continue;
+        }
         if (args[i] === "--resume" || args[i] === "-r") { resume = true; continue; }
         if (args[i] === "--cheapest") { cheapest = true; continue; }
         if (args[i] === "--fastest") { fastest = true; continue; }
-        if (args[i] === "--template" || args[i] === "-t") { template = args[++i]; continue; }
+        if (args[i] === "--template" || args[i] === "-t") {
+          if (i + 1 >= args.length) { console.error("Error: --template requires a value"); process.exit(1); }
+          template = args[++i]; continue;
+        }
         if (args[i] === "--budget" || args[i] === "-b") {
+          if (i + 1 >= args.length) { console.error("Error: --budget requires a value"); process.exit(1); }
           const v = parseFloat(args[++i]);
           if (Number.isFinite(v) && v > 0) budget = v;
           continue;
@@ -120,7 +133,10 @@ async function main() {
       for (let i = 0; i < shellArgs.length; i++) {
         if (shellPastSep) { shellExtraArgs.push(shellArgs[i]); continue; }
         if (shellArgs[i] === "--") { shellPastSep = true; continue; }
-        if (shellArgs[i] === "--agent" || shellArgs[i] === "-a") { shellAgent = shellArgs[++i]; continue; }
+        if (shellArgs[i] === "--agent" || shellArgs[i] === "-a") {
+          if (i + 1 >= shellArgs.length) { console.error("Error: --agent requires a value"); process.exit(1); }
+          shellAgent = shellArgs[++i]; continue;
+        }
       }
 
       const shellExitCode = await shellCommand({ agent: shellAgent, extraArgs: shellExtraArgs });
@@ -157,6 +173,11 @@ async function main() {
       process.exit(exitCode);
     }
 
+    case "handoff": {
+      const exitCode = await handoffCommand(argv.slice(1));
+      process.exit(exitCode);
+    }
+
     case "context":
       process.exit(contextCommand(argv.slice(1)));
 
@@ -181,6 +202,10 @@ async function main() {
 
     case "setup":
       await setupCommand();
+      break;
+
+    case "models":
+      modelsCommand(argv.slice(1));
       break;
 
     case "config":
