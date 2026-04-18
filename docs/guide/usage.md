@@ -34,25 +34,54 @@ harnessctl run -r "continue with error handling"
 
 Session IDs are stored per agent per working directory. When you resume, the adapter passes the session ID to the agent CLI (e.g. `claude --resume <id>`).
 
-## Cross-agent handoff
+## Explicit handoff
 
-When you resume but switch agents, harnessctl prepends the previous agent's summary to the new prompt:
+Every `run` and `shell` prints a **run ID** and **session ID** after completion. Use the run ID to hand off to another agent with full context:
 
 ```bash
-# First run with claude
-harnessctl run --agent claude "fix the auth bug"
+# First run with codex
+harnessctl run --agent codex "refactor the auth module"
+# → run: 1713364500000-codex  session: a3f8c012
 
-# Hand off to codex — claude's summary is included as context
+# Hand off to claude — targets this specific run
+harnessctl handoff 1713364500000-codex --agent claude "review and add tests"
+```
+
+The target agent receives a lean prompt — summary, changed files, and a pointer to `.harnessctl/handoffs/<run-id>.md` — not a full transcript dump. The agent reads the context file on demand.
+
+### Same-agent handoff: resume vs fork
+
+When handing off to the same agent, you can resume the native session or fork:
+
+```bash
+# Resume: continue the same native session
+harnessctl handoff <run-id> --agent claude --resume "keep going"
+
+# Fork: new session, but with context from the previous run
+harnessctl handoff <run-id> --agent claude --fork "try differently"
+```
+
+If neither `--resume` nor `--fork` is specified and the terminal is interactive, harnessctl prompts you to choose.
+
+### Shell mode handoff
+
+Shell sessions are also tracked. After an interactive shell exits, harnessctl scans the agent's native logs to recover the session ID and transcript:
+
+```bash
+harnessctl shell --agent codex
+# (work interactively, then exit)
+# → run: 1713365000000-codex  session: b7e2d901
+
+# Hand off to claude
+harnessctl handoff 1713365000000-codex --agent claude "review what codex did"
+```
+
+### Cross-agent handoff (legacy)
+
+`--resume` with a different agent still works as a lightweight alternative — it prepends the last run's summary to the new prompt:
+
+```bash
 harnessctl run --resume --agent codex "now add tests"
-```
-
-The new agent sees:
-
-```
-Previous context from claude:
-<summary of last run>
-
-now add tests
 ```
 
 ## Piping context
@@ -87,7 +116,7 @@ harnessctl shell -- --verbose             # passthrough flags
 
 This hands your terminal directly to the agent (`stdio: "inherit"`). harnessctl handles agent selection, config resolution, model flags, and pre-flight auth checks before launching. The agent owns the full terminal — you get its native TUI/REPL experience.
 
-**Trade-off:** No output capture, logging, or session tracking in shell mode. Use `run` when you need structured results.
+After the shell exits, harnessctl recovers the session from the agent's native logs and prints a run ID — so you can hand off from shell sessions using `harnessctl handoff`.
 
 ## Flag support per agent
 

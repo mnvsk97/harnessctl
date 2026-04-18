@@ -6,6 +6,7 @@ Universal CLI wrapper for coding agents. One command, any agent.
 harnessctl run "fix the auth bug"                          # default agent
 harnessctl run --agent codex "fix the auth bug"            # pick agent
 harnessctl run --resume "now add tests"                    # resume session
+harnessctl handoff <run-id> --agent claude "add tests"     # explicit handoff
 harnessctl run --agent claude "fix" -- --max-turns 5       # passthrough flags
 cat error.log | harnessctl run "fix this"                  # pipe context
 harnessctl shell                                           # interactive REPL
@@ -100,10 +101,28 @@ harnessctl run --agent codex "fix the auth bug in login.py"
 ```bash
 # Resume with the same agent
 harnessctl run --resume "now add tests for that"
-
-# Resume but switch agent (handoff — previous context is prepended)
-harnessctl run --resume --agent claude "now add tests for that"
 ```
+
+### Handoff to another agent
+
+Every run prints a run ID and session ID. Use the run ID to hand off to another agent with full context:
+
+```bash
+# First run with codex
+harnessctl run --agent codex "refactor the auth module"
+# → run: 1713364500000-codex  session: a3f8c012
+
+# Hand off to claude — claude gets a lean prompt with a pointer to the full context file
+harnessctl handoff 1713364500000-codex --agent claude "review the refactor and add tests"
+
+# Same-agent handoff — resume the native session or fork with transcript
+harnessctl handoff 1713364500000-claude --agent claude --resume "keep going"
+harnessctl handoff 1713364500000-claude --agent claude --fork "try a different approach"
+```
+
+The target agent sees a lean handoff prompt (summary + changed files + pointer to `.harnessctl/handoffs/<run-id>.md`) — not a full transcript dump. The agent reads the context file on demand.
+
+Shell mode also tracks sessions. After an interactive shell exits, harnessctl recovers the session from the agent's native logs, so you can hand off from shell sessions too.
 
 ### Pipe context
 
@@ -130,7 +149,7 @@ harnessctl shell --agent codex      # pick agent
 harnessctl shell -- --verbose       # passthrough flags to agent
 ```
 
-This hands your terminal directly to the agent — you get its full TUI/REPL experience. harnessctl handles agent selection, config, and auth checks before launching. No output capture or logging in this mode.
+This hands your terminal directly to the agent — you get its full TUI/REPL experience. harnessctl handles agent selection, config, and auth checks before launching. After the shell exits, harnessctl recovers the session from the agent's native logs and prints a run ID — so you can hand off from shell sessions too.
 
 If the agent exits with a non-zero code (out of tokens, rate limit, crash), harnessctl detects it and offers to hand off to a configured fallback agent. See [Fallback](#fallback) below.
 
@@ -327,10 +346,13 @@ Unsupported flags produce a warning instead of silent failure:
 [harnessctl] warning: --resume is not supported by codex, ignoring
 ```
 
-### Session & handoff
+### Sessions & handoff
 
-- **Same agent resume:** Session ID is stored per agent per working directory. Passed to the adapter on `--resume`.
-- **Cross-agent handoff:** Sessions don't transfer. The previous agent's summary is prepended to the new prompt as context.
+Each `run` or `shell` invocation creates a **harness session** — a lightweight record grouping related runs across agents. Multiple sessions can coexist in the same working directory (no clobbering).
+
+- **Same agent resume:** `--resume` looks up the agent's native session ID from the harness session and passes it to the adapter CLI.
+- **Explicit handoff:** `harnessctl handoff <run-id> --agent <name> "prompt"` targets a specific run by ID, extracts context, and writes a handoff file at `.harnessctl/handoffs/<run-id>.md`. The target agent gets a lean prompt with a pointer to this file.
+- **Shell recovery:** After an interactive shell exits, harnessctl scans the agent's native log directory to recover session ID and transcript.
 
 ### State directory
 
@@ -341,12 +363,17 @@ Unsupported flags produce a warning instead of silent failure:
     claude.yaml
     codex.yaml
     opencode.yaml
-  sessions/                # session state per agent per cwd
+  sessions/                # harness sessions per cwd
     <cwd-hash>/
-      claude.json
-      last.json
+      <session-id>.json    # { id, cwdHash, createdAt, runs: [...] }
+      _latest.json         # pointer to most recent session
   runs/                    # chronological run logs
-    <timestamp>.json       # { agent, prompt, result, cost, tokens, duration }
+    <timestamp>.json       # { agent, prompt, result, harnessSessionId, parentRunId }
+
+<project-cwd>/
+  .harnessctl/
+    handoffs/              # handoff context files (gitignored)
+      <run-id>.md          # task, summary, changed files, full transcript
 ```
 
 ## Adding a new agent
@@ -476,9 +503,17 @@ src/
   commands/
     run.ts                # run command (headless, one-shot)
     shell.ts              # shell command (interactive REPL)
+    handoff.ts            # explicit cross-agent handoff by run ID
     list.ts               # list agents
     doctor.ts             # health checks
     config.ts             # get/set config
+
+  lib/
+    handoff.ts            # handoff context file writer, git helpers
+    transcript.ts         # transcript formatting + extraction
+    budget.ts             # daily spend tracking
+    context.ts            # project context management
+    templates.ts          # prompt template loading
 ```
 
 ## Testing
