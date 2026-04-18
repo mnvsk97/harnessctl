@@ -1,6 +1,6 @@
 {
   "name": "harnessctl",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Universal CLI wrapper for coding agents",
   "type": "module",
   "main": "dist/cli.js",
