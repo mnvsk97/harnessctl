@@ -18,7 +18,7 @@ const USAGE = `harnessctl — universal coding agent CLI
 
 Usage:
   harnessctl setup
-  harnessctl run [--agent <name>] [--resume] [--cheapest] [--fastest]
+  harnessctl run [--agent <name>] [--resume] [--stream] [--cheapest] [--fastest]
                  [--template <name>] [--budget <usd>] <prompt> [-- <extra-args>...]
   harnessctl shell [--agent <name>] [-- <extra-args>...]
   harnessctl compare <prompt> [--agents <a,b,...>] [-- <extra-args>...]
@@ -40,6 +40,7 @@ Options:
   --fastest           Pick the agent with lowest avg duration from run history
   --template <name>   Wrap prompt in a template from ~/.harnessctl/templates/
   --budget <usd>      Abort if today's spend for this agent would exceed $N
+  --stream, -s        Stream live output instead of showing spinner + result
   --cost              (stats)  Show per-agent daily spend with sparkline
   --mcp               (doctor) List MCP servers configured in each agent
 
@@ -80,6 +81,7 @@ async function main() {
       let resume = false;
       let cheapest = false;
       let fastest = false;
+      let stream = false;
       let template: string | undefined;
       let budget: number | undefined;
       const extraArgs: string[] = [];
@@ -94,6 +96,7 @@ async function main() {
           agent = args[++i]; continue;
         }
         if (args[i] === "--resume" || args[i] === "-r") { resume = true; continue; }
+        if (args[i] === "--stream" || args[i] === "-s") { stream = true; continue; }
         if (args[i] === "--cheapest") { cheapest = true; continue; }
         if (args[i] === "--fastest") { fastest = true; continue; }
         if (args[i] === "--template" || args[i] === "-t") {
@@ -119,7 +122,7 @@ async function main() {
       if (!process.stdin.isTTY) pipedInput = await readStdin();
 
       const exitCode = await runCommand({
-        agent, resume, cheapest, fastest, prompt, extraArgs, pipedInput, template, budget,
+        agent, resume, cheapest, fastest, stream, prompt, extraArgs, pipedInput, template, budget,
       });
       process.exit(exitCode);
     }

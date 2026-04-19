@@ -1,7 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import type { RunResult, Turn } from "../adapters/types.ts";
 
 /* ── Handoff context file ──────────────────────────────── */
 
@@ -14,7 +13,8 @@ export interface HandoffData {
   duration: number;
   timestamp: string;
   changedFiles: string[];
-  turns: Turn[];
+  /** Path to the agent's native session file (JSONL, SQLite, etc.) */
+  sessionFile?: string;
 }
 
 const HANDOFF_DIR = ".harnessctl/handoffs";
@@ -46,12 +46,11 @@ export function writeHandoffFile(cwd: string, data: HandoffData): void {
     lines.push("");
   }
 
-  if (data.turns.length > 0) {
-    lines.push("## Conversation");
-    for (const t of data.turns) {
-      lines.push(`**${t.role === "user" ? "User" : "Assistant"}:** ${t.content}`);
-      lines.push("");
-    }
+  // Point to the session file — let the receiving agent decide what to read
+  if (data.sessionFile) {
+    lines.push("## Session File");
+    lines.push(data.sessionFile);
+    lines.push("");
   }
 
   writeFileSync(join(dir, `${data.runId}.md`), lines.join("\n"));

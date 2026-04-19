@@ -2,14 +2,80 @@ import { spawn } from "node:child_process";
 import type { Adapter, AgentConfig, InvokeIntent, RunResult } from "./adapters/types.ts";
 import { buildCommand } from "./adapters/registry.ts";
 import { defaultDetectExitReason } from "./adapters/_shared.ts";
+import { Spinner } from "./ui.ts";
 
 const DEFAULT_TIMEOUT_SECONDS = 300;
 const KILL_GRACE_PERIOD_MS = 5000;
+
+/**
+ * Extract human-readable text from a Claude stream-json line.
+ * Returns the text to display, or empty string if the line should be suppressed.
+ */
+function extractDisplayText(jsonLine: string): string {
+  try {
+    const ev = JSON.parse(jsonLine);
+    // Show assistant text messages
+    if (ev.type === "assistant" && ev.message?.content) {
+      const parts = Array.isArray(ev.message.content) ? ev.message.content : [ev.message.content];
+      const texts: string[] = [];
+      for (const p of parts) {
+        if (typeof p === "string") texts.push(p);
+        else if (p?.type === "text" && typeof p.text === "string") texts.push(p.text);
+      }
+      if (texts.length) return texts.join("") + "\n";
+    }
+    // Show final result summary
+    if (ev.type === "result" && typeof ev.result === "string" && ev.result.trim()) {
+      return ev.result + "\n";
+    }
+    // Suppress everything else (system, init, hook, tool_use, tool_result, rate_limit_event, etc.)
+    return "";
+  } catch {
+    // Not JSON — pass through as-is (plain text output from non-JSON agents)
+    return jsonLine;
+  }
+}
+
+/**
+ * Extract a short status hint from a Claude stream-json line for the spinner.
+ * Returns a brief description of what the agent is doing, or undefined to keep current text.
+ */
+function extractStatusHint(jsonLine: string): string | undefined {
+  try {
+    const ev = JSON.parse(jsonLine);
+    if (ev.type === "assistant" && ev.message?.content) {
+      const parts = Array.isArray(ev.message.content) ? ev.message.content : [];
+      for (const p of parts) {
+        if (p?.type === "tool_use" && p.name) return `using ${p.name}...`;
+        if (p?.type === "text" && typeof p.text === "string") {
+          const preview = p.text.slice(0, 60).replace(/\n/g, " ").trim();
+          if (preview) return preview + (p.text.length > 60 ? "..." : "");
+        }
+      }
+    }
+    if (ev.type === "result") return "done";
+  } catch { /* not JSON */ }
+  return undefined;
+}
+
+/**
+ * Determine if an agent uses structured JSON output that needs filtering.
+ * Currently only Claude uses --output-format stream-json.
+ */
+function usesJsonOutput(adapter: Adapter): boolean {
+  return adapter.base.args.includes("stream-json");
+}
+
+export interface InvokeOptions {
+  /** When true, stream assistant output live. When false (default), show spinner + final result only. */
+  stream?: boolean;
+}
 
 export function invoke(
   adapter: Adapter,
   intent: InvokeIntent,
   agentConfig: AgentConfig,
+  opts: InvokeOptions = {},
 ): Promise<RunResult> {
   const { cmd, args, stdin: stdinData, warnings } = buildCommand(adapter, intent);
 
@@ -20,6 +86,13 @@ export function invoke(
 
   const timeout = agentConfig.timeout ?? DEFAULT_TIMEOUT_SECONDS;
   const start = Date.now();
+  const isJsonAgent = usesJsonOutput(adapter);
+  const streamMode = opts.stream === true;
+
+  // Quiet mode: show a spinner while the agent works
+  const spinner = (!streamMode && process.stderr.isTTY)
+    ? new Spinner(`${adapter.name} is working...`)
+    : null;
 
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
@@ -29,19 +102,42 @@ export function invoke(
       detached: true,
     });
 
+    spinner?.start();
+
     let stdoutBuf = "";
     let stderrBuf = "";
+    let stdoutLineBuf = "";
 
     child.stdout.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
       stdoutBuf += text;
-      process.stdout.write(text);
+
+      if (isJsonAgent) {
+        // Buffer partial lines, then process complete JSON lines
+        stdoutLineBuf += text;
+        const lines = stdoutLineBuf.split("\n");
+        stdoutLineBuf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          if (streamMode) {
+            const display = extractDisplayText(line);
+            if (display) process.stdout.write(display);
+          } else {
+            // Update spinner with status hints
+            const hint = extractStatusHint(line);
+            if (hint && spinner) spinner.update(hint);
+          }
+        }
+      } else if (streamMode) {
+        process.stdout.write(text);
+      }
+      // quiet + non-JSON agent: buffer silently, spinner keeps spinning
     });
 
     child.stderr.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
       stderrBuf += text;
-      process.stderr.write(text);
+      if (streamMode) process.stderr.write(text);
     });
 
     // Write prompt to stdin then close
@@ -60,6 +156,14 @@ export function invoke(
 
     child.on("close", async (code) => {
       clearTimeout(timer);
+      spinner?.stop();
+
+      // Flush any remaining buffered stdout
+      if (isJsonAgent && streamMode && stdoutLineBuf.trim()) {
+        const display = extractDisplayText(stdoutLineBuf);
+        if (display) process.stdout.write(display);
+      }
+
       const duration = (Date.now() - start) / 1000;
       const parsed = adapter.parseOutput(stdoutBuf, stderrBuf);
       const base: RunResult = {
@@ -88,11 +192,18 @@ export function invoke(
       } catch {
         base.exitReason = code === 0 ? "success" : "error";
       }
+
+      // In quiet mode, print the final result summary
+      if (!streamMode && base.summary) {
+        process.stdout.write(base.summary + "\n");
+      }
+
       resolve(base);
     });
 
     child.on("error", (err: NodeJS.ErrnoException) => {
       clearTimeout(timer);
+      spinner?.stop();
       if (err.code === "ENOENT") {
         reject(new Error(
           `"${cmd}" not found. Is ${adapter.name} installed and in your PATH?\n` +

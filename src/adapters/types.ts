@@ -97,6 +97,12 @@ export interface Adapter {
    * harnessctl cannot capture output (stdio: "inherit"). Must never throw.
    */
   discoverSession?(cwd: string, startedAt: number): Promise<{ sessionId?: string; summary?: string }>;
+  /**
+   * Optional: return the absolute path to the agent's native session file
+   * (JSONL, SQLite, etc.) for this run. Used by handoff to write a pointer
+   * so the receiving agent can read the file directly. Must never throw.
+   */
+  sessionFilePath?(cwd: string, sessionId: string | undefined, startedAt: number): Promise<string | undefined>;
   /** Command to check if the agent is installed */
   healthCheck(): { cmd: string; args: string[] };
   /** Check if authentication is configured and valid */

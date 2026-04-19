@@ -57,11 +57,27 @@ export const codexAdapter: Adapter = {
       if (!line.trim()) continue;
       try {
         const ev = JSON.parse(line);
-        const payload = ev.event_msg?.payload ?? ev.payload ?? ev;
-        const role = payload?.role ?? ev.role;
-        const text = payload?.text ?? payload?.message ?? payload?.content;
-        if ((role === "user" || role === "assistant") && typeof text === "string" && text.trim()) {
-          turns.push({ role, content: text });
+
+        // User messages: only from event_msg with type "user_message" (actual user input)
+        if (ev.type === "event_msg" && ev.payload?.type === "user_message" && ev.payload.message) {
+          turns.push({ role: "user", content: ev.payload.message });
+          continue;
+        }
+
+        // Assistant messages: only final answers and commentary (skip tool calls, reasoning, system)
+        if (ev.type === "event_msg" && ev.payload?.type === "agent_message" && ev.payload.message) {
+          turns.push({ role: "assistant", content: ev.payload.message });
+          continue;
+        }
+
+        // Also capture assistant output_text from response_item messages
+        if (ev.type === "response_item" && ev.payload?.role === "assistant" && ev.payload?.content) {
+          const parts = Array.isArray(ev.payload.content) ? ev.payload.content : [];
+          for (const p of parts) {
+            if (p?.type === "output_text" && typeof p.text === "string" && p.text.trim()) {
+              turns.push({ role: "assistant", content: p.text });
+            }
+          }
         }
       } catch { /* skip malformed JSONL line */ }
     }
@@ -148,6 +164,10 @@ export const codexAdapter: Adapter = {
       if (!result.tokens) return { tokens: lastTokens };
     }
     return {};
+  },
+
+  async sessionFilePath(_cwd: string, _sessionId: string | undefined, startedAt: number): Promise<string | undefined> {
+    return findNewestRollout(startedAt) ?? undefined;
   },
 
   async discoverSession(_cwd: string, startedAt: number): Promise<{ sessionId?: string; summary?: string }> {

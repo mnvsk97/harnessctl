@@ -165,6 +165,21 @@ export const claudeAdapter: Adapter = {
     return {};
   },
 
+  async sessionFilePath(_cwd: string, sessionId: string | undefined, _startedAt: number): Promise<string | undefined> {
+    if (!sessionId) return undefined;
+    const projectsDir = `${homedir()}/.claude/projects`;
+    let projectDirs: string[];
+    try {
+      projectDirs = readdirSync(projectsDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory()).map((d) => d.name);
+    } catch { return undefined; }
+    for (const dir of projectDirs) {
+      const path = `${projectsDir}/${dir}/${sessionId}.jsonl`;
+      try { statSync(path); return path; } catch { continue; }
+    }
+    return undefined;
+  },
+
   async discoverSession(_cwd: string, startedAt: number): Promise<{ sessionId?: string; summary?: string }> {
     const projectsDir = `${homedir()}/.claude/projects`;
     let projectDirs: string[];

@@ -65,6 +65,41 @@ export function separator(): void {
   console.error("");
 }
 
+/* ── Live spinner ─────────────────────────────────────── */
+
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+export class Spinner {
+  private frame = 0;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private text: string;
+
+  constructor(text: string) {
+    this.text = text;
+  }
+
+  start(): void {
+    if (this.timer || !process.stderr.isTTY) return;
+    this.timer = setInterval(() => {
+      const f = SPINNER_FRAMES[this.frame % SPINNER_FRAMES.length];
+      process.stderr.write(`\r${c.cyan(f)} ${c.dim(this.text)}`);
+      this.frame++;
+    }, 80);
+  }
+
+  update(text: string): void {
+    this.text = text;
+  }
+
+  stop(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+      if (process.stderr.isTTY) process.stderr.write("\r\x1b[K"); // clear line
+    }
+  }
+}
+
 /** Prompt user with a yes/no question on the terminal. Works even when stdin is piped. */
 export function askConfirm(question: string): Promise<boolean> {
   return new Promise((resolve) => {

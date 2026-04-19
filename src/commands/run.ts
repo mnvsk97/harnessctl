@@ -32,6 +32,8 @@ export interface RunOptions {
   harnessSessionId?: string;
   /** Set by handoff command to link this run to its source. */
   parentRunId?: string;
+  /** Stream live output instead of showing spinner + result only. */
+  stream?: boolean;
 }
 
 function pickBestAgent(by: "cost" | "speed", knownAgents: string[]): string | undefined {
@@ -151,7 +153,7 @@ async function invokeAgent(
   rule();
 
   const startedAt = Date.now();
-  const result = await invoke(adapter, intent, agentConfig);
+  const result = await invoke(adapter, intent, agentConfig, { stream: opts.stream });
 
   // Write run log (with raw user prompt, not the augmented one)
   const runId = writeRunLog(agentName, opts.prompt, cwd, result, {
@@ -174,11 +176,11 @@ async function invokeAgent(
   };
   addRun(cwd, harnessSessionId, sessionRun);
 
-  // Write handoff context file
-  let turns: import("../adapters/types.ts").Turn[] = [];
+  // Write handoff context file with session file pointer (not inlined transcript)
+  let sessionFile: string | undefined;
   try {
-    if (adapter.extractTranscript) {
-      turns = await adapter.extractTranscript(cwd, result.sessionId, startedAt);
+    if (adapter.sessionFilePath) {
+      sessionFile = await adapter.sessionFilePath(cwd, result.sessionId, startedAt);
     }
   } catch { /* best effort */ }
   ensureGitignore(cwd);
@@ -191,7 +193,7 @@ async function invokeAgent(
     duration: result.duration,
     timestamp: sessionRun.timestamp,
     changedFiles,
-    turns,
+    sessionFile,
   });
 
   // Result footer

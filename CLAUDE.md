@@ -10,7 +10,7 @@ Universal CLI wrapper for coding agents (Claude Code, Codex, OpenCode, Gemini, C
 ## Commands
 ```
 bun run src/cli.ts setup
-bun run src/cli.ts run [--agent <n>] [--resume] [--template <n>] [--budget <usd>] <prompt> [-- <extra-args>...]
+bun run src/cli.ts run [--agent <n>] [--resume] [--stream] [--template <n>] [--budget <usd>] <prompt> [-- <extra-args>...]
 bun run src/cli.ts shell [--agent <n>] [-- <extra-args>...]
 bun run src/cli.ts handoff <run-id> --agent <name> [--resume|--fork] [--budget <usd>] <prompt>
 bun run src/cli.ts compare <prompt> [--agents <a,b,...>]

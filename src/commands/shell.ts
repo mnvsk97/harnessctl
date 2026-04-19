@@ -91,20 +91,16 @@ async function trackShellSession(
     }
   } catch { /* best effort */ }
 
-  // Extract transcript if possible
-  let turns: import("../adapters/types.ts").Turn[] = [];
+  // Find session file path for handoff pointer
+  let sessionFile: string | undefined;
   try {
-    if (adapter.extractTranscript) {
-      turns = await adapter.extractTranscript(cwd, agentSessionId, startedAt);
+    if (adapter.sessionFilePath) {
+      sessionFile = await adapter.sessionFilePath(cwd, agentSessionId, startedAt);
     }
   } catch { /* best effort */ }
 
-  // Build summary from transcript or discovery
+  // Build summary from discovery
   let summary = discoverSummary ?? "";
-  if (!summary && turns.length > 0) {
-    const lastAssistant = [...turns].reverse().find((t) => t.role === "assistant");
-    if (lastAssistant) summary = lastAssistant.content.slice(0, 200);
-  }
   if (!summary) summary = "(interactive shell)";
 
   // Create harness session
@@ -136,7 +132,7 @@ async function trackShellSession(
     duration,
     timestamp: sessionRun.timestamp,
     changedFiles,
-    turns,
+    sessionFile,
   });
 
   console.error(c.dim(`  run: ${runId}  session: ${session.id}`));
