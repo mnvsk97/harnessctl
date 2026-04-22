@@ -112,14 +112,14 @@ A few things worth noting:
 
 ## Supported agents
 
-| Agent | CLI | Resume | Transcript extraction | Session discovery |
-|---|---|---|---|---|
-| Claude Code | `claude` | `--resume <id>` | from JSONL files | by file mtime |
-| Codex | `codex` | -- | from rollout files | by file mtime |
-| Gemini | `gemini` | `--resume <id>` | from JSONL files | by file mtime |
-| Cursor | `cursor-agent` | `--resume <id>` | from JSONL files | by file mtime |
-| OpenCode | `opencode` | -- | -- | from SQLite DB |
-| Custom | configurable | via YAML `resume_arg` | -- | -- |
+| Agent | CLI | Resume | Transcript | Session file | Failover |
+|---|---|---|---|---|---|
+| Claude Code | `claude` | `--resume <id>` | JSONL | pointer in handoff | full transcript |
+| Codex | `codex` | -- | rollout JSONL | pointer in handoff | full transcript |
+| Gemini | `gemini` | `--resume <id>` | JSONL | -- | summary only |
+| Cursor | `cursor-agent` | `--resume <id>` | JSONL | -- | summary only |
+| OpenCode | `opencode` | -- | -- | -- | summary only |
+| Custom | configurable | via YAML `resume_arg` | -- | -- | summary only |
 
 ---
 
@@ -325,8 +325,9 @@ src/
 ## Tests
 
 ```bash
-bun test                        # unit tests
-bash test/sim-fallback.sh       # simulated failover with fake agents
+bun test                                 # unit tests
+bash test/sim-headless-failover.sh       # headless auto-failover (14 tests)
+bash test/sim-fallback.sh                # shell fallback with expect (10 tests)
 ```
 
 ---

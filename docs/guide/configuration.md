@@ -54,6 +54,27 @@ extra_args: []
 | `env` | map | Environment variables. `${VAR}` syntax resolves from your shell env |
 | `timeout` | number | Seconds before SIGTERM (default: 300) |
 | `extra_args` | list | Args appended to every invocation of this agent |
+| `fallback` | string | Agent to hand off to on failure (e.g. `codex`) |
+| `auto_failover` | boolean | Silent handoff on rate/token/auth limits (default: false) |
+| `failover_transfer` | string | What to carry to fallback: `"transcript"` or `"summary"` (default: transcript) |
+| `budget_daily` | number | Daily spend ceiling in USD |
+
+### Auto-failover example
+
+```yaml
+# ~/.harnessctl/agents/claude.yaml
+model: claude-sonnet-4-6
+fallback: codex
+auto_failover: true
+failover_transfer: transcript
+```
+
+When Claude hits a rate limit, token limit, or auth error, harnessctl silently hands off to Codex with the full conversation attached. Generic errors still prompt. Set up chains from the CLI:
+
+```bash
+harnessctl config set-fallback claude codex
+harnessctl config set-fallback codex opencode
+```
 
 ### What goes in YAML vs adapter code
 

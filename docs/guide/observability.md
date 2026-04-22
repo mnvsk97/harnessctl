@@ -39,7 +39,7 @@ The `harnessSessionId` links runs in the same handoff chain. The `parentRunId` p
 
 ## Handoff context files
 
-Each run writes a handoff context file at `<project>/.harnessctl/handoffs/<run-id>.md` containing the task, summary, changed files, and full transcript. These are gitignored and used by `harnessctl handoff` to provide context to the target agent.
+Each run writes a handoff context file at `<project>/.harnessctl/handoffs/<run-id>.md` containing the task, summary, changed files, and a pointer to the agent's native session file. These are gitignored and used by `harnessctl handoff` to provide context to the target agent. The handoff prompt is lean by design -- summary + changed files + file pointer, not a full transcript dump.
 
 ## Inline stats
 
