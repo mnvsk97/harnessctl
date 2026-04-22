@@ -21,6 +21,12 @@ export function defaultDetectExitReason(
   stderr: string,
   exitCode: number | null,
 ): ExitReason {
+  // Trust a clean exit code — the agent completed successfully. Regex checks
+  // below can false-positive on transcript/context text injected by harnessctl
+  // (e.g. a failover transcript mentioning "rate limit"). Agents that can exit 0
+  // with an error (e.g. Claude stream-json) have their own detectExitReason.
+  if (exitCode === 0) return "success";
+
   const haystack = `${stdout}\n${stderr}`;
 
   // Rate-limit / quota exhaustion. Matches Anthropic / OpenAI / Google / generic.
@@ -47,6 +53,5 @@ export function defaultDetectExitReason(
     return "auth_error";
   }
 
-  if (exitCode === 0) return "success";
   return "error";
 }

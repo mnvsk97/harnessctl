@@ -109,7 +109,14 @@ export function askConfirm(question: string): Promise<boolean> {
     } else {
       const ttyPath = process.platform === "win32" ? "CON" : "/dev/tty";
       try {
-        input = createReadStream(ttyPath);
+        const stream = createReadStream(ttyPath);
+        // createReadStream may succeed synchronously but fail asynchronously
+        // when /dev/tty is unavailable (headless, CI). Catch the error event.
+        stream.on("error", () => {
+          console.error(c.dim("[harnessctl] no terminal available, skipping prompt"));
+          resolve(false);
+        });
+        input = stream;
       } catch {
         console.error(c.dim("[harnessctl] no terminal available, skipping prompt"));
         resolve(false);
@@ -118,6 +125,10 @@ export function askConfirm(question: string): Promise<boolean> {
     }
 
     const rl = createInterface({ input, output: process.stderr });
+    rl.on("error", () => {
+      rl.close();
+      resolve(false);
+    });
     rl.question(question, (answer) => {
       rl.close();
       resolve(answer.trim().toLowerCase().startsWith("y"));
