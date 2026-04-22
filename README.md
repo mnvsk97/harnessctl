@@ -196,7 +196,7 @@ npm install -g harnessctl
 brew install mnvsk97/tap/harnessctl
 ```
 
-Works with Bun (any version) or Node.js >= 22.
+Works with Bun (any version) or Node.js >= 18.
 
 <details>
 <summary>Shell script (Linux / macOS)</summary>

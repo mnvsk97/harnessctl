@@ -106,7 +106,8 @@ async function main() {
         if (args[i] === "--budget" || args[i] === "-b") {
           if (i + 1 >= args.length) { console.error("Error: --budget requires a value"); process.exit(1); }
           const v = parseFloat(args[++i]);
-          if (Number.isFinite(v) && v > 0) budget = v;
+          if (!Number.isFinite(v) || v <= 0) { console.error("Error: --budget must be a positive number (e.g. --budget 2.00)"); process.exit(1); }
+          budget = v;
           continue;
         }
         promptParts.push(args[i]);

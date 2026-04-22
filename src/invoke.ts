@@ -24,11 +24,8 @@ function extractDisplayText(jsonLine: string): string {
       }
       if (texts.length) return texts.join("") + "\n";
     }
-    // Show final result summary
-    if (ev.type === "result" && typeof ev.result === "string" && ev.result.trim()) {
-      return ev.result + "\n";
-    }
-    // Suppress everything else (system, init, hook, tool_use, tool_result, rate_limit_event, etc.)
+    // Suppress everything else (system, init, hook, tool_use, tool_result, result, rate_limit_event, etc.)
+    // The "result" event is redundant with streamed assistant text — final summary is printed separately.
     return "";
   } catch {
     // Not JSON — pass through as-is (plain text output from non-JSON agents)

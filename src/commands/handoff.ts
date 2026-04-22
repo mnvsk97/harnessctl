@@ -31,7 +31,12 @@ export async function handoffCommand(argv: string[]): Promise<number> {
     if (argv[i] === "--agent" && i + 1 < argv.length) { targetAgent = argv[++i]; continue; }
     if (argv[i] === "--resume") { forceResume = true; continue; }
     if (argv[i] === "--fork") { forceFork = true; continue; }
-    if (argv[i] === "--budget" && i + 1 < argv.length) { budget = parseFloat(argv[++i]); continue; }
+    if (argv[i] === "--budget" && i + 1 < argv.length) {
+      const v = parseFloat(argv[++i]);
+      if (!Number.isFinite(v) || v <= 0) { console.error(`${c.red("✗")} --budget must be a positive number`); return 1; }
+      budget = v;
+      continue;
+    }
     if (!runId) { runId = argv[i]; continue; }
     promptParts.push(argv[i]);
   }

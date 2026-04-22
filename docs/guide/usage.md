@@ -118,6 +118,41 @@ This hands your terminal directly to the agent (`stdio: "inherit"`). harnessctl 
 
 After the shell exits, harnessctl recovers the session from the agent's native logs and prints a run ID — so you can hand off from shell sessions using `harnessctl handoff`.
 
+## Comparing agents
+
+Run the same prompt across multiple agents in parallel and compare the results:
+
+```bash
+# Compare all installed agents
+harnessctl compare "write a function to parse ISO 8601 dates"
+
+# Compare specific agents
+harnessctl compare "fix the auth bug" --agents codex,claude
+
+# Pipe context in
+cat error.log | harnessctl compare "diagnose this error" --agents claude,codex,gemini
+```
+
+Each agent runs in parallel. When all finish, harnessctl prints a summary table:
+
+```
+── compare results ─────────────────────────────────
+  ✓  codex     12.3s   $0.0045   1823 tokens
+     extracted auth middleware into separate module…
+  ✓  claude     8.1s   $0.0032   1204 tokens
+     refactored auth into middleware, added tests…
+  ✗  gemini    45.2s   —         —
+     rate limited after initial analysis…
+```
+
+Each run is logged individually, so you can hand off from any of them:
+
+```bash
+harnessctl handoff 1713364500000-codex --agent claude "review codex's approach and improve it"
+```
+
+This is useful for benchmarking agents on your actual codebase, or for getting a second opinion on a tricky task.
+
 ## Flag support per agent
 
 Not all agents support all flags. harnessctl warns when you use a flag an agent doesn't support:
