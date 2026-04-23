@@ -12,6 +12,7 @@ export const SESSIONS_DIR = join(HARNESS_DIR, "sessions");
 export const RUNS_DIR = join(HARNESS_DIR, "runs");
 export const PROJECTS_DIR = join(HARNESS_DIR, "projects");
 export const TEMPLATES_DIR = join(HARNESS_DIR, "templates");
+export const PIPELINES_DIR = join(HARNESS_DIR, "pipelines");
 
 
 export interface GlobalConfig {
@@ -82,7 +83,7 @@ function loadDotenv(filePath: string): void {
 
 export function ensureInit(): void {
   try {
-    for (const dir of [HARNESS_DIR, AGENTS_DIR, SESSIONS_DIR, RUNS_DIR, PROJECTS_DIR, TEMPLATES_DIR]) {
+    for (const dir of [HARNESS_DIR, AGENTS_DIR, SESSIONS_DIR, RUNS_DIR, PROJECTS_DIR, TEMPLATES_DIR, PIPELINES_DIR]) {
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     }
     if (!existsSync(CONFIG_PATH)) {

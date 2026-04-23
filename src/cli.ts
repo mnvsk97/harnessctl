@@ -13,17 +13,22 @@ import { contextCommand } from "./commands/context.ts";
 import { replayCommand } from "./commands/replay.ts";
 import { modelsCommand } from "./commands/models.ts";
 import { handoffCommand } from "./commands/handoff.ts";
+import { pipelineCommand, parsePipelineArgs } from "./commands/pipeline.ts";
 
 const USAGE = `harnessctl — universal coding agent CLI
 
 Usage:
   harnessctl setup
   harnessctl run [--agent <name>] [--resume] [--stream] [--cheapest] [--fastest]
-                 [--template <name>] [--budget <usd>] <prompt> [-- <extra-args>...]
-  harnessctl shell [--agent <name>] [-- <extra-args>...]
+                 [--template <name>] [--budget <usd>] [--name <label>]
+                 <prompt> [-- <extra-args>...]
+  harnessctl shell [--agent <name>] [--name <label>] [-- <extra-args>...]
+  harnessctl pipeline <prompt> [--plan <agent>] [--build <agent>] [--review <agent>]
+                     [--test <agent>] [--step <agent:instruction>]...
+                     [--preset <name>] [--name <label>] [--stream] [--budget <usd>]
   harnessctl compare <prompt> [--agents <a,b,...>] [-- <extra-args>...]
   harnessctl handoff <run-id> --agent <name> [--resume|--fork]
-                     [--budget <usd>] <prompt>
+                     [--budget <usd>] [--name <label>] <prompt>
   harnessctl replay <run-id>
   harnessctl context get|set|edit|clear|sync|path
   harnessctl list
@@ -40,6 +45,7 @@ Options:
   --fastest           Pick the agent with lowest avg duration from run history
   --template <name>   Wrap prompt in a template from ~/.harnessctl/templates/
   --budget <usd>      Abort if today's spend for this agent would exceed $N
+  --name <label>      Name the session (e.g. "auth-refactor") for easy reference
   --stream, -s        Stream live output instead of showing spinner + result
   --cost              (stats)  Show per-agent daily spend with sparkline
   --mcp               (doctor) List MCP servers configured in each agent
@@ -84,6 +90,7 @@ async function main() {
       let stream = false;
       let template: string | undefined;
       let budget: number | undefined;
+      let name: string | undefined;
       const extraArgs: string[] = [];
       const promptParts: string[] = [];
       let pastSeparator = false;
@@ -102,6 +109,10 @@ async function main() {
         if (args[i] === "--template" || args[i] === "-t") {
           if (i + 1 >= args.length) { console.error("Error: --template requires a value"); process.exit(1); }
           template = args[++i]; continue;
+        }
+        if (args[i] === "--name") {
+          if (i + 1 >= args.length) { console.error("Error: --name requires a value"); process.exit(1); }
+          name = args[++i]; continue;
         }
         if (args[i] === "--budget" || args[i] === "-b") {
           if (i + 1 >= args.length) { console.error("Error: --budget requires a value"); process.exit(1); }
@@ -123,7 +134,7 @@ async function main() {
       if (!process.stdin.isTTY) pipedInput = await readStdin();
 
       const exitCode = await runCommand({
-        agent, resume, cheapest, fastest, stream, prompt, extraArgs, pipedInput, template, budget,
+        agent, resume, cheapest, fastest, stream, prompt, extraArgs, pipedInput, template, budget, name,
       });
       process.exit(exitCode);
     }
@@ -131,6 +142,7 @@ async function main() {
     case "shell": {
       const shellArgs = argv.slice(1);
       let shellAgent: string | undefined;
+      let shellName: string | undefined;
       const shellExtraArgs: string[] = [];
       let shellPastSep = false;
 
@@ -141,10 +153,21 @@ async function main() {
           if (i + 1 >= shellArgs.length) { console.error("Error: --agent requires a value"); process.exit(1); }
           shellAgent = shellArgs[++i]; continue;
         }
+        if (shellArgs[i] === "--name") {
+          if (i + 1 >= shellArgs.length) { console.error("Error: --name requires a value"); process.exit(1); }
+          shellName = shellArgs[++i]; continue;
+        }
       }
 
-      const shellExitCode = await shellCommand({ agent: shellAgent, extraArgs: shellExtraArgs });
+      const shellExitCode = await shellCommand({ agent: shellAgent, extraArgs: shellExtraArgs, name: shellName });
       process.exit(shellExitCode);
+    }
+
+    case "pipeline": {
+      const pipeOpts = parsePipelineArgs(argv.slice(1));
+      if (!pipeOpts) process.exit(1);
+      const pipeExitCode = await pipelineCommand(pipeOpts);
+      process.exit(pipeExitCode);
     }
 
     case "compare": {

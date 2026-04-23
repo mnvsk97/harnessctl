@@ -61,6 +61,8 @@ mock.module("../session.ts", () => ({
   }),
   latestRunForAgent: () => ({ runId: "r1", agent: "claude", agentSessionId: "sess-123", summary: "", timestamp: "" }),
   findSessionByRunId: () => null,
+  resolveSessionRef: () => null,
+  validateSessionName: () => true,
 }));
 
 mock.module("../log.ts", () => ({

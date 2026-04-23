@@ -69,9 +69,11 @@ export function logsCommand(args: string[]): void {
     const status = log.result.exitCode === 0 ? c.green("✓") : c.red("✗");
     const cost = log.result.cost !== undefined ? `$${log.result.cost.toFixed(4)}` : "—";
     const duration = `${log.result.duration.toFixed(1)}s`;
-    const sessionTag = (log as Record<string, unknown>).harnessSessionId
-      ? c.dim(` [${(log as Record<string, unknown>).harnessSessionId}]`)
-      : "";
+    const sessionName = (log as Record<string, unknown>).harnessSessionName as string | undefined;
+    const sessionId = (log as Record<string, unknown>).harnessSessionId as string | undefined;
+    const sessionTag = sessionName
+      ? c.cyan(` [${sessionName}]`)
+      : sessionId ? c.dim(` [${sessionId}]`) : "";
     const parentTag = (log as Record<string, unknown>).parentRunId
       ? c.dim(` ← ${(log as Record<string, unknown>).parentRunId}`)
       : "";

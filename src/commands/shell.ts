@@ -10,6 +10,7 @@ import { header, separator, c, askConfirm } from "../ui.ts";
 export interface ShellOptions {
   agent?: string;
   extraArgs: string[];
+  name?: string;
 }
 
 /**
@@ -76,6 +77,7 @@ async function trackShellSession(
   startedAt: number,
   exitCode: number,
   preCommitSha?: string,
+  sessionName?: string,
 ): Promise<void> {
   const adapter = getAdapter(agentName, agentConfig);
   const duration = (Date.now() - startedAt) / 1000;
@@ -104,7 +106,7 @@ async function trackShellSession(
   if (!summary) summary = "(interactive shell)";
 
   // Create harness session
-  const session = createSession(cwd);
+  const session = createSession(cwd, sessionName);
   const result = { exitCode, summary, sessionId: agentSessionId, duration, exitReason: exitCode === 0 ? "success" as const : "error" as const };
 
   const runId = writeRunLog(agentName, "(interactive shell)", cwd, result, {
@@ -194,7 +196,7 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
   const exitCode = await launchShell(agentName, env, args);
 
   // Post-shell session tracking: discover session from agent logs
-  await trackShellSession(agentName, agentConfig, cwd, startedAt, exitCode, preCommitSha);
+  await trackShellSession(agentName, agentConfig, cwd, startedAt, exitCode, preCommitSha, opts.name);
 
   // Agent exited cleanly — done
   if (exitCode === 0) return 0;

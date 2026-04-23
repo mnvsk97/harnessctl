@@ -1,5 +1,5 @@
 import { loadRunLog } from "../log.ts";
-import { findSessionByRunId, createSession, addRun } from "../session.ts";
+import { findSessionByRunId, createSession, addRun, resolveSessionRef } from "../session.ts";
 import type { HarnessSessionRun } from "../session.ts";
 import { getAdapter, listAdapterNames } from "../adapters/registry.ts";
 import { loadAgentConfig, isKnownAgent } from "../config.ts";
@@ -21,6 +21,7 @@ export async function handoffCommand(argv: string[]): Promise<number> {
   let forceResume = false;
   let forceFork = false;
   let budget: number | undefined;
+  let sessionName: string | undefined;
   const promptParts: string[] = [];
   const extraArgs: string[] = [];
   let seenSeparator = false;
@@ -31,6 +32,7 @@ export async function handoffCommand(argv: string[]): Promise<number> {
     if (argv[i] === "--agent" && i + 1 < argv.length) { targetAgent = argv[++i]; continue; }
     if (argv[i] === "--resume") { forceResume = true; continue; }
     if (argv[i] === "--fork") { forceFork = true; continue; }
+    if (argv[i] === "--name" && i + 1 < argv.length) { sessionName = argv[++i]; continue; }
     if (argv[i] === "--budget" && i + 1 < argv.length) {
       const v = parseFloat(argv[++i]);
       if (!Number.isFinite(v) || v <= 0) { console.error(`${c.red("✗")} --budget must be a positive number`); return 1; }
@@ -77,11 +79,14 @@ export async function handoffCommand(argv: string[]): Promise<number> {
 
   const cwd = process.cwd();
 
-  // Find or create harness session
+  // Find or create harness session (try by run ID, then by session name)
   let session = findSessionByRunId(cwd, runId);
+  if (!session && sessionName) {
+    session = resolveSessionRef(cwd, sessionName);
+  }
   if (!session) {
     // Retroactive session for old runs that predate the session system
-    session = createSession(cwd);
+    session = createSession(cwd, sessionName);
     const retroRun: HarnessSessionRun = {
       runId,
       agent: sourceLog.agent,
@@ -147,6 +152,7 @@ export async function handoffCommand(argv: string[]): Promise<number> {
     harnessSessionId: session.id,
     parentRunId: runId,
     ...(budget != null ? { budget } : {}),
+    ...(sessionName ? { name: sessionName } : {}),
   };
 
   return runCommand(runOpts);

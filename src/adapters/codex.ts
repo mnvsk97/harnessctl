@@ -34,7 +34,7 @@ export const codexAdapter: Adapter = {
 
   base: {
     cmd: "codex",
-    args: ["exec", "-", "--full-auto"],
+    args: ["exec", "-", "--full-auto", "--json"],
   },
 
   argMap: {
@@ -88,21 +88,45 @@ export const codexAdapter: Adapter = {
     const result: Partial<RunResult> = {};
     const lines = stdout.split("\n").filter(Boolean);
 
+    // --json output uses: thread.started, turn.started, item.completed, turn.completed
+    let lastAgentMessage = "";
+
     for (const line of lines) {
       try {
-        const event = JSON.parse(line);
-        if (event.type === "completed" || event.type === "result") {
-          result.summary = event.message ?? event.result ?? "";
-          if (event.usage) {
-            result.tokens = {
-              input: event.usage.input_tokens ?? 0,
-              output: event.usage.output_tokens ?? 0,
-            };
-          }
+        const ev = JSON.parse(line);
+
+        // Session/thread ID
+        if (ev.type === "thread.started" && ev.thread_id) {
+          result.sessionId = ev.thread_id;
         }
-      } catch { /* non-JSON line in stream output */ }
+
+        // Agent messages — keep the last one as the summary
+        if (ev.type === "item.completed" && ev.item?.type === "agent_message" && ev.item.text) {
+          lastAgentMessage = ev.item.text;
+        }
+
+        // Token usage from turn.completed
+        if (ev.type === "turn.completed" && ev.usage) {
+          result.tokens = {
+            input: ev.usage.input_tokens ?? 0,
+            output: ev.usage.output_tokens ?? 0,
+            cacheRead: ev.usage.cached_input_tokens || undefined,
+          };
+        }
+
+        // Fallback: rollout-style events (task_complete, legacy completed/result)
+        if (ev.type === "event_msg" && ev.payload?.type === "task_complete") {
+          lastAgentMessage = ev.payload.last_agent_message ?? lastAgentMessage;
+        }
+        if (!lastAgentMessage && (ev.type === "completed" || ev.type === "result")) {
+          lastAgentMessage = ev.message ?? ev.result ?? "";
+        }
+      } catch { /* non-JSON line */ }
     }
 
+    if (lastAgentMessage) result.summary = lastAgentMessage;
+
+    // Final fallback: last non-JSON line
     if (!result.summary) {
       for (let i = lines.length - 1; i >= 0; i--) {
         try { JSON.parse(lines[i]); continue; } catch {}

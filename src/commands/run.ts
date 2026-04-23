@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { loadConfig, loadAgentConfig, resolveEnv, isKnownAgent, RUNS_DIR } from "../config.ts";
 import { getAdapter, checkAuth, listAdapterNames } from "../adapters/registry.ts";
 import { invoke } from "../invoke.ts";
-import { createSession, addRun, loadSession, loadLatestSession, latestRunForAgent } from "../session.ts";
+import { createSession, addRun, loadSession, loadLatestSession, latestRunForAgent, resolveSessionRef, validateSessionName } from "../session.ts";
 import type { HarnessSessionRun } from "../session.ts";
 import { writeRunLog } from "../log.ts";
 import { header, footer, separator, rule, c, askConfirm } from "../ui.ts";
@@ -34,6 +34,8 @@ export interface RunOptions {
   parentRunId?: string;
   /** Stream live output instead of showing spinner + result only. */
   stream?: boolean;
+  /** Human-readable session name (e.g. "auth-refactor"). */
+  name?: string;
 }
 
 function pickBestAgent(by: "cost" | "speed", knownAgents: string[]): string | undefined {
@@ -161,6 +163,7 @@ async function invokeAgent(
     extraArgs: opts.extraArgs,
     harnessSessionId,
     parentRunId: opts.parentRunId,
+    harnessSessionName: opts.name,
   });
 
   // Add run to harness session
@@ -312,23 +315,32 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 
   const cwd = process.cwd();
 
+  // Validate session name if provided
+  if (opts.name && !validateSessionName(opts.name)) {
+    console.error(`${c.red("✗")} invalid session name: "${opts.name}"`);
+    console.error(c.dim("  names must be lowercase alphanumeric with hyphens/underscores, max 64 chars"));
+    return 1;
+  }
+
   // Determine harness session: reuse from handoff or create new
   let harnessSessionId = opts.harnessSessionId;
   if (!harnessSessionId) {
-    // If --resume, try to find the latest session for this cwd and agent
+    // If --resume, try to find a session (by name or latest)
     if (opts.resume) {
-      const latest = loadLatestSession(cwd);
-      if (latest) {
-        const lastRun = latest.runs[latest.runs.length - 1];
+      const resolved = opts.name
+        ? resolveSessionRef(cwd, opts.name)
+        : loadLatestSession(cwd);
+      if (resolved) {
+        const lastRun = resolved.runs[resolved.runs.length - 1];
         if (lastRun) {
-          harnessSessionId = latest.id;
+          harnessSessionId = resolved.id;
           opts.harnessSessionId = harnessSessionId;
         }
       }
     }
     // Still no session → create a fresh one
     if (!harnessSessionId) {
-      const session = createSession(cwd);
+      const session = createSession(cwd, opts.name);
       harnessSessionId = session.id;
     }
   }

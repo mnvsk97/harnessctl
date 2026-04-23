@@ -17,6 +17,8 @@ export interface RunLog {
   harnessSessionId?: string;
   /** Run ID this was handed off from, if any. */
   parentRunId?: string;
+  /** Human-readable session name, if set. */
+  harnessSessionName?: string;
 }
 
 export function writeRunLog(
@@ -24,7 +26,7 @@ export function writeRunLog(
   prompt: string,
   cwd: string,
   result: RunResult,
-  extras?: { model?: string; extraArgs?: string[]; harnessSessionId?: string; parentRunId?: string },
+  extras?: { model?: string; extraArgs?: string[]; harnessSessionId?: string; parentRunId?: string; harnessSessionName?: string },
 ): string {
   ensureInit();
   const log: RunLog = {
@@ -37,6 +39,7 @@ export function writeRunLog(
     ...(extras?.extraArgs && extras.extraArgs.length ? { extraArgs: extras.extraArgs } : {}),
     ...(extras?.harnessSessionId ? { harnessSessionId: extras.harnessSessionId } : {}),
     ...(extras?.parentRunId ? { parentRunId: extras.parentRunId } : {}),
+    ...(extras?.harnessSessionName ? { harnessSessionName: extras.harnessSessionName } : {}),
   };
   const filename = `${Date.now()}-${agent}.json`;
   const path = join(RUNS_DIR, filename);

@@ -18,6 +18,7 @@ export interface HarnessSessionRun {
 
 export interface HarnessSession {
   id: string;
+  name?: string;
   cwdHash: string;
   createdAt: string;
   runs: HarnessSessionRun[];
@@ -32,9 +33,22 @@ function sessionsDir(cwd: string): string {
 }
 
 const LATEST = "_latest.json";
+const NAMES = "_names.json";
 
 function writeLatest(dir: string, id: string): void {
   writeFileSync(join(dir, LATEST), JSON.stringify({ id }));
+}
+
+function readNameIndex(dir: string): Record<string, string> {
+  const path = join(dir, NAMES);
+  if (!existsSync(path)) return {};
+  try { return JSON.parse(readFileSync(path, "utf-8")); } catch { return {}; }
+}
+
+function writeNameIndex(dir: string, name: string, id: string): void {
+  const index = readNameIndex(dir);
+  index[name] = id;
+  writeFileSync(join(dir, NAMES), JSON.stringify(index));
 }
 
 /* ── Public API ────────────────────────────────────────── */
@@ -43,18 +57,25 @@ export function generateSessionId(): string {
   return randomUUID().slice(0, 8);
 }
 
+/** Validate a session name: lowercase alphanumeric, hyphens, underscores; max 64 chars. */
+export function validateSessionName(name: string): boolean {
+  return /^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$/.test(name) || /^[a-z0-9]$/.test(name);
+}
+
 /** Create a new harness session with an empty runs list. */
-export function createSession(cwd: string): HarnessSession {
+export function createSession(cwd: string, name?: string): HarnessSession {
   const dir = sessionsDir(cwd);
   const id = generateSessionId();
   const session: HarnessSession = {
     id,
+    ...(name ? { name } : {}),
     cwdHash: cwdHash(cwd),
     createdAt: new Date().toISOString(),
     runs: [],
   };
   writeFileSync(join(dir, `${id}.json`), JSON.stringify(session, null, 2));
   writeLatest(dir, id);
+  if (name) writeNameIndex(dir, name, id);
   return session;
 }
 
@@ -108,4 +129,18 @@ export function latestRunForAgent(session: HarnessSession, agent: string): Harne
     if (session.runs[i].agent === agent) return session.runs[i];
   }
   return undefined;
+}
+
+/** Load a session by its human-readable name. */
+export function loadSessionByName(cwd: string, name: string): HarnessSession | null {
+  const dir = sessionsDir(cwd);
+  const index = readNameIndex(dir);
+  const id = index[name];
+  if (!id) return null;
+  return loadSession(cwd, id);
+}
+
+/** Resolve a ref that could be a session name or a raw session ID. */
+export function resolveSessionRef(cwd: string, ref: string): HarnessSession | null {
+  return loadSessionByName(cwd, ref) ?? loadSession(cwd, ref);
 }

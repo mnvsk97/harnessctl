@@ -51,6 +51,9 @@ mock.module("../session.ts", () => ({
   loadLatestSession: () => null,
   findSessionByRunId: () => null,
   latestRunForAgent: () => undefined,
+  resolveSessionRef: () => null,
+  validateSessionName: () => true,
+  loadSessionByName: () => null,
 }));
 mock.module("../log.ts", () => ({
   writeRunLog: () => "1713364500000-codex",
@@ -60,6 +63,7 @@ mock.module("../lib/handoff.ts", () => ({
   getHeadSha: () => undefined,
   getChangedFiles: () => [],
   ensureGitignore: () => {},
+  buildHandoffPrompt: () => "",
 }));
 
 // Mock registry — return minimal adapters, controlled auth

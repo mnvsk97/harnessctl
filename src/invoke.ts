@@ -8,13 +8,14 @@ const DEFAULT_TIMEOUT_SECONDS = 300;
 const KILL_GRACE_PERIOD_MS = 5000;
 
 /**
- * Extract human-readable text from a Claude stream-json line.
+ * Extract human-readable text from a JSON stream line (Claude stream-json or Codex --json).
  * Returns the text to display, or empty string if the line should be suppressed.
  */
 function extractDisplayText(jsonLine: string): string {
   try {
     const ev = JSON.parse(jsonLine);
-    // Show assistant text messages
+
+    // Claude: assistant text messages
     if (ev.type === "assistant" && ev.message?.content) {
       const parts = Array.isArray(ev.message.content) ? ev.message.content : [ev.message.content];
       const texts: string[] = [];
@@ -24,8 +25,12 @@ function extractDisplayText(jsonLine: string): string {
       }
       if (texts.length) return texts.join("") + "\n";
     }
-    // Suppress everything else (system, init, hook, tool_use, tool_result, result, rate_limit_event, etc.)
-    // The "result" event is redundant with streamed assistant text — final summary is printed separately.
+
+    // Codex --json: agent messages
+    if (ev.type === "item.completed" && ev.item?.type === "agent_message" && ev.item.text) {
+      return ev.item.text + "\n";
+    }
+
     return "";
   } catch {
     // Not JSON — pass through as-is (plain text output from non-JSON agents)
@@ -34,12 +39,14 @@ function extractDisplayText(jsonLine: string): string {
 }
 
 /**
- * Extract a short status hint from a Claude stream-json line for the spinner.
+ * Extract a short status hint from a JSON stream line for the spinner.
  * Returns a brief description of what the agent is doing, or undefined to keep current text.
  */
 function extractStatusHint(jsonLine: string): string | undefined {
   try {
     const ev = JSON.parse(jsonLine);
+
+    // Claude: assistant content (tool_use, text)
     if (ev.type === "assistant" && ev.message?.content) {
       const parts = Array.isArray(ev.message.content) ? ev.message.content : [];
       for (const p of parts) {
@@ -51,16 +58,44 @@ function extractStatusHint(jsonLine: string): string | undefined {
       }
     }
     if (ev.type === "result") return "done";
+
+    // Codex --json: agent commentary
+    if (ev.type === "item.completed" && ev.item?.type === "agent_message") {
+      const msg = ev.item.text ?? "";
+      const preview = msg.slice(0, 60).replace(/\n/g, " ").trim();
+      if (preview) return preview + (msg.length > 60 ? "..." : "");
+    }
+
+    // Codex --json: command execution
+    if (ev.type === "item.started" && ev.item?.type === "command_execution") {
+      const cmd = ev.item.command ?? "";
+      // Strip shell wrapper to show the actual command
+      const inner = cmd.replace(/^\/bin\/\w+\s+-lc\s+/, "").replace(/^["']|["']$/g, "");
+      return inner ? `running: ${inner.slice(0, 50)}` : "running command...";
+    }
+
+    // Codex --json: file changes
+    if (ev.type === "item.started" && ev.item?.type === "file_change") {
+      const changes = ev.item.changes ?? [];
+      if (changes.length > 0) {
+        const path = changes[0].path?.split("/").pop() ?? "";
+        return path ? `editing: ${path}` : "applying changes...";
+      }
+      return "applying changes...";
+    }
+
+    // Codex --json: turn complete
+    if (ev.type === "turn.completed") return "done";
   } catch { /* not JSON */ }
   return undefined;
 }
 
 /**
  * Determine if an agent uses structured JSON output that needs filtering.
- * Currently only Claude uses --output-format stream-json.
+ * Claude uses --output-format stream-json; Codex uses --json.
  */
 function usesJsonOutput(adapter: Adapter): boolean {
-  return adapter.base.args.includes("stream-json");
+  return adapter.base.args.includes("stream-json") || adapter.base.args.includes("--json");
 }
 
 export interface InvokeOptions {
