@@ -15,6 +15,7 @@ export default defineConfig({
           { text: "Getting Started", link: "/guide/getting-started" },
           { text: "Installation", link: "/guide/installation" },
           { text: "Usage", link: "/guide/usage" },
+          { text: "Example notebooks", link: "/guide/notebooks" },
           { text: "Configuration", link: "/guide/configuration" },
           { text: "Adapters", link: "/guide/adapters" },
           { text: "Observability", link: "/guide/observability" },

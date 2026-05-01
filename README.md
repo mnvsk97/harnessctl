@@ -115,6 +115,14 @@ harnessctl doctor               # health check all agents
 harnessctl context set "Go 1.22, postgres"  # project context (synced to CLAUDE.md, AGENTS.md, etc.)
 ```
 
+## Example notebooks
+
+Command walkthroughs live in [`docs/examples/notebooks`](docs/examples/notebooks/):
+
+- Quickstart handoff: Codex to Claude Code
+- Compare and judge: run agents side by side and add a judge
+- Pipelines and fallback: chain stages and configure fallback basics
+
 ## Install
 
 ```bash
