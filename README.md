@@ -11,12 +11,28 @@
 
 ---
 
-Stop juggling CLIs. harnessctl wraps Claude Code, Codex, Gemini, Cursor, OpenCode -- or anything with a CLI -- behind one interface. If an agent hits a rate limit mid-task, harnessctl hands off to the next one with the conversation intact.
+Routers started at the API level: distribute workloads across pods, keep sessions sticky, classify requests, and send traffic to the right place.
+
+Then LLM routers showed up. If you were building an app, you could switch between models based on complexity, intent, cost, latency, time to first token, or whatever else mattered for that request. The point was simple: get the best model for the job without rewriting your app every time the model landscape changed.
+
+The natural next step is routing between agent harnesses.
+
+An agent harness is the full coding-agent runtime around the model: the CLI, tools, memory, prompting style, session format, approvals, repo context, and all the small choices that shape how the agent actually works. Claude Code, Codex, OpenCode, Cursor CLI, and Gemini CLI are not interchangeable wrappers around the same thing. They behave differently, and those differences matter.
+
+harnessctl is an attempt to make switching between harnesses easy. Use Codex for one task, Claude Code for another, compare Gemini against Cursor, or hand off midway when one harness has the feature or behavior you need.
 
 ```bash
 npm install -g harnessctl
 harnessctl setup
 ```
+
+## Why switch harnesses?
+
+- Distribute cost and spend across providers instead of piling everything onto one tool.
+- Constantly compare what works best for your actual workflow. There is no one-harness-fits-all answer. The best choice depends on how you prompt, how you manage memory, how your repo is structured, and what kind of app you are building.
+- Pick based on evidence, not whatever tweet says "Codex is the best now" this week.
+- Use the best part of each harness. Maybe one has better session resume, another has better repo edits, another has a feature you need halfway through a session.
+- Keep moving when a harness hits auth issues, rate limits, missing features, or just starts doing the wrong thing.
 
 ## What it does
 
