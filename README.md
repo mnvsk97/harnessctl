@@ -44,7 +44,7 @@ harnessctl shell --agent claude
 harnessctl pipeline "build auth module" --plan codex --build claude --test codex
 
 # hand off between agents
-harnessctl handoff <run-id> --agent codex "now write tests"
+harnessctl handoff RUN_ID --agent codex "now write tests"
 
 # compare agents side by side
 harnessctl compare "fix the bug" --agents claude,codex
@@ -110,7 +110,7 @@ harnessctl run --agent claude "fix" -- --max-turns 5 # passthrough flags
 
 harnessctl stats --cost         # cost dashboard
 harnessctl logs                 # run history with session chains
-harnessctl replay <run-id>      # re-run a past invocation
+harnessctl replay RUN_ID        # re-run a past invocation
 harnessctl doctor               # health check all agents
 harnessctl context set "Go 1.22, postgres"  # project context (synced to CLAUDE.md, AGENTS.md, etc.)
 ```
@@ -123,8 +123,7 @@ npm install -g harnessctl
 brew install mnvsk97/tap/harnessctl
 ```
 
-<details>
-<summary>Other methods</summary>
+Other methods:
 
 ```bash
 # shell script
@@ -135,8 +134,6 @@ git clone https://github.com/mnvsk97/harnessctl.git
 cd harnessctl && bun install
 bun run src/cli.ts run "hello"
 ```
-
-</details>
 
 ## Tests
 
