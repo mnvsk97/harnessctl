@@ -13,13 +13,15 @@ hero:
       link: https://github.com/mnvsk97/harnessctl
 features:
   - title: One interface
-    details: Same command whether you're running Claude Code, Codex, OpenCode, or any CLI agent.
+    details: Same command whether you're running Claude Code, Codex, OpenCode, Gemini, Cursor, or any CLI agent.
   - title: Auto-failover
     details: Agent hits a rate limit? harnessctl silently hands off to the next one with the full conversation attached.
   - title: Cross-agent handoff
     details: Hand off any run to a different agent by ID. The target gets a lean prompt with summary, changed files, and a context pointer.
   - title: Full observability
     details: Every run is logged — agent, prompt, result, cost, tokens, duration. Session chains are fully traceable.
+  - title: Multi-agent pipelines
+    details: Chain agents in sequence — plan with one, build with another, test with a third. Each stage hands off context automatically.
   - title: Run or shell
     details: One-shot headless prompts with full capture, or launch the agent's native interactive REPL.
   - title: Zero lock-in

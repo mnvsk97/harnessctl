@@ -28,6 +28,9 @@ harnessctl run --agent codex "refactor the database layer"
 # interactive shell
 harnessctl shell --agent claude
 
+# multi-agent pipeline
+harnessctl pipeline "build auth module" --plan codex --build claude --test codex
+
 # hand off between agents
 harnessctl handoff <run-id> --agent codex "now write tests"
 
@@ -86,6 +89,8 @@ The target agent gets a lean prompt -- summary, changed files, and a pointer to 
 ```bash
 harnessctl run --resume "continue where you left off"
 harnessctl run --cheapest "simple task"              # pick by cost history
+harnessctl run --fastest "quick fix"                 # pick by speed history
+harnessctl run --name auth-refactor "fix auth"       # named session
 harnessctl run --template code-review "src/auth.ts"  # reusable prompt templates
 harnessctl run --budget 2.00 "refactor payments"     # daily spend cap
 cat error.log | harnessctl run "fix this"            # pipe context in
@@ -125,6 +130,7 @@ bun run src/cli.ts run "hello"
 
 ```bash
 bun test                                 # unit tests
+bun run typecheck                        # TypeScript check
 bash test/sim-headless-failover.sh       # headless auto-failover (14 tests)
 bash test/sim-fallback.sh                # shell fallback with expect (10 tests)
 ```

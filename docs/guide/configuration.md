@@ -76,6 +76,23 @@ harnessctl config set-fallback claude codex
 harnessctl config set-fallback codex opencode
 ```
 
+## Pipeline presets
+
+Reusable pipeline configurations live in `~/.harnessctl/pipelines/<name>.yaml`:
+
+```yaml
+# ~/.harnessctl/pipelines/plan-build-test.yaml
+stages:
+  - role: plan
+    agent: codex
+  - role: build
+    agent: claude
+  - role: test
+    agent: codex
+```
+
+Use them with `harnessctl pipeline "prompt" --preset plan-build-test`.
+
 ### What goes in YAML vs adapter code
 
 - **YAML** — user preferences: model, env, timeout, extra args

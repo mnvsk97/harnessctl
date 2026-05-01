@@ -3,6 +3,8 @@ import { homedir } from "node:os";
 import type { Adapter, AuthCheckResult, RunResult, Turn } from "./types.ts";
 import { defaultDetectExitReason } from "./_shared.ts";
 
+type DirEntry = { name: string; isDirectory(): boolean };
+
 export const geminiAdapter: Adapter = {
   name: "gemini",
 
@@ -73,7 +75,7 @@ export const geminiAdapter: Adapter = {
     if (!result.sessionId) return {};
     // Gemini CLI stores session logs under ~/.gemini/sessions/
     const sessionsDir = `${homedir()}/.gemini/sessions`;
-    let entries: ReturnType<typeof readdirSync>;
+    let entries: DirEntry[];
     try { entries = readdirSync(sessionsDir, { withFileTypes: true }); } catch { return {}; }
 
     for (const entry of entries) {
@@ -112,7 +114,7 @@ export const geminiAdapter: Adapter = {
   async extractTranscript(_cwd: string, sessionId: string | undefined, startedAt: number): Promise<Turn[]> {
     if (!sessionId) return [];
     const sessionsDir = `${homedir()}/.gemini/sessions`;
-    let entries: ReturnType<typeof readdirSync>;
+    let entries: DirEntry[];
     try { entries = readdirSync(sessionsDir, { withFileTypes: true }); } catch { return []; }
 
     for (const entry of entries) {
@@ -151,7 +153,7 @@ export const geminiAdapter: Adapter = {
 
   async discoverSession(_cwd: string, startedAt: number): Promise<{ sessionId?: string; summary?: string }> {
     const sessionsDir = `${homedir()}/.gemini/sessions`;
-    let entries: ReturnType<typeof readdirSync>;
+    let entries: DirEntry[];
     try { entries = readdirSync(sessionsDir, { withFileTypes: true }); } catch { return {}; }
 
     let best: { sessionId: string; mtime: number } | null = null;

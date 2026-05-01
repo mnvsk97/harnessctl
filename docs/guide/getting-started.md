@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-At least one coding agent CLI installed (`claude`, `codex`, or `opencode`).
+At least one coding agent CLI installed (`claude`, `codex`, `opencode`, `gemini`, or `cursor`).
 
 ## Install
 
@@ -12,7 +12,7 @@ At least one coding agent CLI installed (`claude`, `codex`, or `opencode`).
 npm install -g harnessctl
 ```
 
-Works with Bun (any version) or Node.js >= 22.
+Works with Node.js >= 18.
 
 ### Homebrew
 
@@ -91,6 +91,9 @@ On first run, harnessctl creates `~/.harnessctl/` with default configs:
     claude.yaml        # env, timeout
     codex.yaml
     opencode.yaml
+    gemini.yaml
+    cursor.yaml
   sessions/
   runs/
+  pipelines/           # reusable pipeline presets
 ```

@@ -22,6 +22,10 @@ harnessctl run "prompt"
 # Override for this run
 harnessctl run --agent codex "prompt"
 harnessctl run -a opencode "prompt"
+
+# Auto-select by history
+harnessctl run --cheapest "simple task"    # lowest avg cost
+harnessctl run --fastest "quick fix"       # lowest avg duration
 ```
 
 ## Resuming sessions
@@ -83,6 +87,18 @@ harnessctl handoff 1713365000000-codex --agent claude "review what codex did"
 ```bash
 harnessctl run --resume --agent codex "now add tests"
 ```
+
+## Named sessions
+
+Give sessions human-readable names for easy reference:
+
+```bash
+harnessctl run --name auth-refactor "fix the auth module"
+harnessctl shell --name debugging --agent claude
+harnessctl pipeline "build feature" --plan codex --build claude --name feature-x
+```
+
+Names must be lowercase alphanumeric with hyphens or underscores, max 64 characters. Named sessions can be referenced later by name instead of ID.
 
 ## Piping context
 
@@ -153,6 +169,64 @@ harnessctl handoff 1713364500000-codex --agent claude "review codex's approach a
 
 This is useful for benchmarking agents on your actual codebase, or for getting a second opinion on a tricky task.
 
+## Pipelines
+
+Chain multiple agents in sequence, each handling a different stage of a task:
+
+```bash
+# Role flags: plan, build, review, test (executed in that order)
+harnessctl pipeline "build auth module" --plan codex --build claude
+harnessctl pipeline "add search" --plan codex --build claude --review codex --test claude
+
+# Custom steps with per-step instructions
+harnessctl pipeline "refactor payments" \
+  --step codex:"plan the API changes" \
+  --step claude:"implement the plan"
+
+# Reusable presets from ~/.harnessctl/pipelines/
+harnessctl pipeline "build feature X" --preset plan-build-test
+```
+
+Each stage runs sequentially. After the first stage, each subsequent agent receives a handoff prompt with the summary, changed files, and context from the previous stage. All stages share a single harness session.
+
+### Role flags
+
+Role flags assign a predefined instruction to each stage:
+
+| Flag | Instruction |
+|---|---|
+| `--plan <agent>` | Create a detailed implementation plan (no code) |
+| `--build <agent>` | Implement based on the previous stage's plan |
+| `--review <agent>` | Review for bugs, edge cases, improvements |
+| `--test <agent>` | Write comprehensive tests |
+
+Roles always execute in the order: plan, build, review, test — regardless of flag order on the command line.
+
+### Presets
+
+Save pipeline configurations as YAML in `~/.harnessctl/pipelines/`:
+
+```yaml
+# ~/.harnessctl/pipelines/plan-build-test.yaml
+stages:
+  - role: plan
+    agent: codex
+  - role: build
+    agent: claude
+  - role: test
+    agent: codex
+```
+
+### Pipeline options
+
+```bash
+harnessctl pipeline "prompt" --name my-pipeline   # named session
+harnessctl pipeline "prompt" --stream              # stream live output
+harnessctl pipeline "prompt" --budget 5.00         # daily spend cap
+```
+
+If any stage fails (non-zero exit), the pipeline stops and prints a summary of completed stages.
+
 ## Flag support per agent
 
 Not all agents support all flags. harnessctl warns when you use a flag an agent doesn't support:
@@ -163,7 +237,7 @@ Not all agents support all flags. harnessctl warns when you use a flag an agent 
 
 Current flag support:
 
-| Flag | Claude | Codex | OpenCode |
-|---|---|---|---|
-| `--model` | `--model` | `--model` | `--model` |
-| `--resume` | `--resume <id>` | not supported | not supported |
+| Flag | Claude | Codex | OpenCode | Gemini | Cursor |
+|---|---|---|---|---|---|
+| `--model` | `--model` | `--model` | `--model` | `--model` | `-m` |
+| `--resume` | `--resume <id>` | -- | -- | `--resume <id>` | `--resume <id>` |

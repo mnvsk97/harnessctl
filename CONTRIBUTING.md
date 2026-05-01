@@ -13,6 +13,11 @@ bun install
 # Run from source
 bun run src/cli.ts run "hello"
 
+# Verify
+bun test
+bun run typecheck
+bun run bundle
+
 # Build binary
 bun build --compile src/cli.ts --outfile harnessctl
 ```
@@ -24,14 +29,16 @@ bun build --compile src/cli.ts --outfile harnessctl
 3. Register it in `src/adapters/registry.ts`
 4. Add a default YAML config in `src/config.ts` `DEFAULT_AGENTS`
 
-Look at `src/adapters/claude.ts` as a reference — it's about 50 lines.
+Look at `src/adapters/codex.ts` or `src/adapters/opencode.ts` as compact references.
 
 ### Adapter checklist
 
 - [ ] `base.cmd` and `base.args` invoke the agent in headless/non-interactive mode
 - [ ] `argMap` declares which harnessctl flags the agent supports and how they translate
 - [ ] `parseOutput` extracts summary, session ID, cost, and token usage from output
-- [ ] `healthCheck` returns a command that verifies the agent is installed
+- [ ] `detectExitReason` is added only if the shared detector is not enough
+- [ ] `healthCheck` and `authCheck` are cheap, non-interactive commands
+- [ ] Tests cover parsing and flag mapping for the adapter
 
 ## Project structure
 
@@ -43,14 +50,14 @@ src/
   session.ts       # session management
   log.ts           # run logging
   adapters/        # per-agent translation layer
-  commands/        # CLI commands (run, shell, list, doctor, config)
+  commands/        # CLI commands (run, shell, list, doctor, config, pipeline)
 ```
 
 ## Guidelines
 
 - Keep it minimal. harnessctl is plumbing, not a platform.
-- No new dependencies unless absolutely necessary.
-- Adapters should be self-contained (~40-60 lines).
+- Runtime dependencies should stay near zero; prefer Node built-ins.
+- Adapters should be self-contained and boring.
 - Test with the actual agent CLI before submitting.
 
 ## Reporting issues

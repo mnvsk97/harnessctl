@@ -4,29 +4,37 @@ import type { Adapter, AuthCheckResult, RunResult, Turn } from "./types.ts";
 import { defaultDetectExitReason } from "./_shared.ts";
 
 const MAX_WALK_DEPTH = 5;
+type DirEntry = { name: string; isDirectory(): boolean };
 
 /** Find the newest rollout-*.jsonl under ~/.codex/sessions/ modified after ts. */
 function findNewestRollout(sinceMs: number): string | null {
   const base = `${homedir()}/.codex/sessions`;
-  let best: { path: string; mtime: number } | null = null;
-  const walk = (dir: string, depth: number) => {
-    if (depth > MAX_WALK_DEPTH) return;
-    let entries: ReturnType<typeof readdirSync>;
-    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  let bestPath: string | null = null;
+  let bestMtime = 0;
+  const stack: { dir: string; depth: number }[] = [{ dir: base, depth: 0 }];
+
+  while (stack.length > 0) {
+    const { dir, depth } = stack.pop()!;
+    if (depth > MAX_WALK_DEPTH) continue;
+    let entries: DirEntry[];
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { continue; }
     for (const e of entries) {
       const full = `${dir}/${e.name}`;
-      if (e.isDirectory()) walk(full, depth + 1);
+      if (e.isDirectory()) stack.push({ dir: full, depth: depth + 1 });
       else if (e.name.startsWith("rollout-") && e.name.endsWith(".jsonl")) {
         try {
           const mtime = statSync(full).mtimeMs;
-          if (!best || mtime > best.mtime) best = { path: full, mtime };
+          if (mtime > bestMtime) {
+            bestPath = full;
+            bestMtime = mtime;
+          }
         } catch { /* skip unreadable files */ }
       }
     }
-  };
-  walk(base, 0);
-  if (!best || best.mtime < sinceMs) return null;
-  return best.path;
+  }
+
+  if (!bestPath || bestMtime < sinceMs) return null;
+  return bestPath;
 }
 
 export const codexAdapter: Adapter = {
@@ -141,31 +149,11 @@ export const codexAdapter: Adapter = {
   async postRun(_cwd: string, result: RunResult, startedAt: number): Promise<Partial<RunResult>> {
     // Find the most recently modified rollout-*.jsonl under ~/.codex/sessions/
     // that was written during this run to avoid picking up a concurrent session.
-    const sessionsBase = `${homedir()}/.codex/sessions`;
-    let newest: { path: string; mtime: number } | null = null;
-
-    const walkDir = (dir: string, depth: number) => {
-      if (depth > MAX_WALK_DEPTH) return;
-      let entries: ReturnType<typeof readdirSync>;
-      try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
-      for (const entry of entries) {
-        const full = `${dir}/${entry.name}`;
-        if (entry.isDirectory()) {
-          walkDir(full, depth + 1);
-        } else if (entry.name.startsWith("rollout-") && entry.name.endsWith(".jsonl")) {
-          try {
-            const mtime = statSync(full).mtimeMs;
-            if (!newest || mtime > newest.mtime) newest = { path: full, mtime };
-          } catch { /* skip unreadable files */ }
-        }
-      }
-    };
-    walkDir(sessionsBase, 0);
-    // Reject files that predate this run — they belong to a previous invocation
-    if (!newest || newest.mtime < startedAt) return {};
+    const newest = findNewestRollout(startedAt);
+    if (!newest) return {};
 
     let content: string;
-    try { content = readFileSync(newest.path, "utf8"); } catch { return {}; /* rollout file unreadable */ }
+    try { content = readFileSync(newest, "utf8"); } catch { return {}; /* rollout file unreadable */ }
 
     // The last token_count event holds cumulative totals for the session
     let lastTokens: { input: number; output: number } | null = null;

@@ -8,9 +8,9 @@ harnessctl is available via npm, Homebrew, install scripts, or from source.
 npm install -g harnessctl
 ```
 
-The npm package ships TypeScript source and a thin runner shim. It tries Bun first (native TS), then falls back to Node.js >= 22 (with `--experimental-strip-types`).
+The npm package ships a bundled Node.js entrypoint.
 
-**Requirements:** Bun (any version) or Node.js >= 22.
+**Requirements:** Node.js >= 18.
 
 ## Homebrew
 

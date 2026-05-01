@@ -7,7 +7,7 @@ import { writeRunLog } from "../log.ts";
 import { writeHandoffFile, getHeadSha, getChangedFiles, ensureGitignore } from "../lib/handoff.ts";
 import { header, separator, c, askConfirm } from "../ui.ts";
 
-export interface ShellOptions {
+interface ShellOptions {
   agent?: string;
   extraArgs: string[];
   name?: string;
@@ -22,7 +22,7 @@ const interactiveBase: Record<string, { cmd: string; args: string[] }> = {
   codex:    { cmd: "codex", args: [] },
   opencode: { cmd: "opencode", args: [] },
   gemini:   { cmd: "gemini", args: [] },
-  cursor:   { cmd: "cursor-agent", args: [] },
+  cursor:   { cmd: "agent", args: [] },
 };
 
 /** Launch an interactive shell for a single agent. Returns the exit code. */

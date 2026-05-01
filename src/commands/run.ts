@@ -324,6 +324,7 @@ export async function runCommand(opts: RunOptions): Promise<number> {
 
   // Determine harness session: reuse from handoff or create new
   let harnessSessionId = opts.harnessSessionId;
+  let resumedSession: ReturnType<typeof loadLatestSession> = null;
   if (!harnessSessionId) {
     // If --resume, try to find a session (by name or latest)
     if (opts.resume) {
@@ -331,6 +332,7 @@ export async function runCommand(opts: RunOptions): Promise<number> {
         ? resolveSessionRef(cwd, opts.name)
         : loadLatestSession(cwd);
       if (resolved) {
+        resumedSession = resolved;
         const lastRun = resolved.runs[resolved.runs.length - 1];
         if (lastRun) {
           harnessSessionId = resolved.id;
@@ -348,7 +350,7 @@ export async function runCommand(opts: RunOptions): Promise<number> {
   // Honor handoff from last session (only when --resume and it's a different agent).
   let initialTranscript = "";
   if (opts.resume) {
-    const latest = loadLatestSession(cwd);
+    const latest = resumedSession ?? loadLatestSession(cwd);
     if (latest) {
       const lastRun = latest.runs[latest.runs.length - 1];
       if (lastRun && lastRun.agent !== agentName && lastRun.summary) {

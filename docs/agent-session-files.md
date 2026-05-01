@@ -1,7 +1,7 @@
 # Agent Session Files Reference
 
 What files each coding agent creates on disk during shell (interactive) and headless sessions.
-Last updated: 2026-04-18.
+Last updated: 2026-05-01.
 
 ---
 
@@ -70,8 +70,7 @@ Last updated: 2026-04-18.
 
 | File / Directory | Path Pattern | Format | Mode | Contents |
 |---|---|---|---|---|
-| Chat history | `~/.gemini/tmp/<project-hash>/chats/session-<ts>-<id>.json` | JSON | Both | Full conversation: messages, timestamps, token usage, model |
-| Event log | `~/.gemini/tmp/<project-hash>/logs.json` | JSON | Both | Session events with user messages and timestamps |
+| Session transcript | `~/.gemini/sessions/<project-or-date>/<session-id>.jsonl` | JSONL | Both | User/assistant turns, usage metadata, model |
 | Settings | `~/.gemini/settings.json` | JSON | Both | OAuth type, MCP server config |
 | Google accounts | `~/.gemini/google_accounts.json` | JSON | Both | Active/historical Google account info |
 | OAuth creds | `~/.gemini/oauth_creds.json` | JSON | Both | Access/refresh/ID tokens, scope, expiry |
@@ -79,11 +78,11 @@ Last updated: 2026-04-18.
 | Bundled ripgrep | `~/.gemini/tmp/bin/rg` | Binary | Both | ripgrep for file searching |
 | Native memory file | `<cwd>/GEMINI.md` | Markdown | Both | Project instructions (harnessctl syncs context here) |
 
-**Key session file:** `~/.gemini/tmp/<project-hash>/chats/session-<ts>-<id>.json` — single JSON file per session. Contains the full conversation with messages array, token usage, and model info.
+**Key session file:** `~/.gemini/sessions/<project-or-date>/<session-id>.jsonl` — JSONL transcript file. harnessctl discovers the newest session file modified after the run started, then extracts user/assistant turns and usage metadata.
 
 ---
 
-## Cursor Agent (`cursor-agent`)
+## Cursor (`agent`)
 
 | File / Directory | Path Pattern | Format | Mode | Contents |
 |---|---|---|---|---|
@@ -102,5 +101,5 @@ Last updated: 2026-04-18.
 | Claude | `~/.claude/projects/<hash>/<uuid>.jsonl` | JSONL | Session ID from stdout → find in project dirs |
 | Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | JSONL | Newest rollout file modified after run start |
 | OpenCode | `~/.local/share/opencode/opencode.db` | SQLite | Query sessions table by timestamp |
-| Gemini | `~/.gemini/tmp/<hash>/chats/session-*.json` | JSON | Newest chat file modified after run start |
+| Gemini | `~/.gemini/sessions/<dir>/<id>.jsonl` | JSONL | Newest session file modified after run start |
 | Cursor | `~/.cursor-agent/sessions/<ws>/<id>.jsonl` | JSONL | Newest session file modified after run start |

@@ -34,6 +34,26 @@ opencode --pipe
 - Extracts: token usage, summary
 - Supports: `model`
 
+### Gemini
+
+```
+gemini --output-format stream-json --yolo
+```
+
+- Output: stream-json (newline-delimited JSON events)
+- Extracts: session ID, token usage, summary
+- Supports: `model`, `resume`
+
+### Cursor
+
+```
+agent -p --force --output-format stream-json
+```
+
+- Output: stream-json (newline-delimited JSON events)
+- Extracts: session ID, cost, token usage, summary
+- Supports: `model`, `resume`
+
 ## Arg mapping
 
 Each adapter declares an `argMap` — a mapping from harnessctl flags to agent CLI flags:

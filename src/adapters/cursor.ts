@@ -3,6 +3,8 @@ import { homedir } from "node:os";
 import type { Adapter, AuthCheckResult, RunResult, Turn } from "./types.ts";
 import { defaultDetectExitReason } from "./_shared.ts";
 
+type DirEntry = { name: string; isDirectory(): boolean };
+
 export const cursorAdapter: Adapter = {
   name: "cursor",
 
@@ -59,7 +61,7 @@ export const cursorAdapter: Adapter = {
     if (!result.sessionId) return {};
     // cursor-agent stores session logs under ~/.cursor-agent/sessions/
     const sessionsDir = `${homedir()}/.cursor-agent/sessions`;
-    let entries: ReturnType<typeof readdirSync>;
+    let entries: DirEntry[];
     try { entries = readdirSync(sessionsDir, { withFileTypes: true }); } catch { return {}; }
 
     for (const entry of entries) {
@@ -93,7 +95,7 @@ export const cursorAdapter: Adapter = {
   async extractTranscript(_cwd: string, sessionId: string | undefined, startedAt: number): Promise<Turn[]> {
     if (!sessionId) return [];
     const sessionsDir = `${homedir()}/.cursor-agent/sessions`;
-    let entries: ReturnType<typeof readdirSync>;
+    let entries: DirEntry[];
     try { entries = readdirSync(sessionsDir, { withFileTypes: true }); } catch { return []; }
 
     for (const entry of entries) {
@@ -127,7 +129,7 @@ export const cursorAdapter: Adapter = {
 
   async discoverSession(_cwd: string, startedAt: number): Promise<{ sessionId?: string; summary?: string }> {
     const sessionsDir = `${homedir()}/.cursor-agent/sessions`;
-    let entries: ReturnType<typeof readdirSync>;
+    let entries: DirEntry[];
     try { entries = readdirSync(sessionsDir, { withFileTypes: true }); } catch { return {}; }
 
     let best: { sessionId: string; mtime: number } | null = null;

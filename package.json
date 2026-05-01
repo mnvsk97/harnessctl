@@ -1,6 +1,6 @@
 {
   "name": "harnessctl",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "description": "Universal CLI wrapper for coding agents",
   "type": "module",
   "main": "dist/cli.js",
@@ -16,6 +16,7 @@
     "dev": "bun run src/cli.ts",
     "build": "bun build --compile src/cli.ts --outfile harnessctl",
     "bundle": "bun build src/cli.ts --outdir dist --target node --format esm && node -e \"const f='dist/cli.js';let c=require('fs').readFileSync(f,'utf8');c=c.replace(/^#!.*\\n(\\/\\/ @bun\\n)?/,'#!/usr/bin/env node\\n');require('fs').writeFileSync(f,c)\"",
+    "typecheck": "tsc --noEmit",
     "test": "bun test",
     "prepublishOnly": "bun run bundle"
   },
@@ -24,6 +25,8 @@
     "coding-agent",
     "claude",
     "codex",
+    "gemini",
+    "cursor",
     "opencode",
     "ai",
     "developer-tools"
@@ -43,5 +46,10 @@
   },
   "dependencies": {
     "yaml": "^2.7.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "@types/node": "22",
+    "typescript": "^6.0.3"
   }
 }

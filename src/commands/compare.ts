@@ -6,7 +6,7 @@ import { separator, c } from "../ui.ts";
 import type { InvokeIntent } from "../adapters/types.ts";
 import type { RunResult } from "../adapters/types.ts";
 
-export interface CompareOptions {
+interface CompareOptions {
   prompt: string;
   extraArgs: string[];
   agents?: string[];
