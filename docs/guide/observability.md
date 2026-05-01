@@ -41,6 +41,12 @@ The `harnessSessionId` links runs in the same handoff chain. The `parentRunId` p
 
 Each run writes a handoff context file at `<project>/.harnessctl/handoffs/<run-id>.md` containing the task, summary, changed files, and a pointer to the agent's native session file. These are gitignored and used by `harnessctl handoff` to provide context to the target agent. The handoff prompt is lean by design -- summary + changed files + file pointer, not a full transcript dump.
 
+Handoff runs keep logs readable: `harnessctl logs` shows the user's new instruction, while the expanded handoff context stays in the handoff file.
+
+## Compare reports
+
+Each `harnessctl compare` run writes a Markdown report at `<project>/.harnessctl/compare/<id>.md`. The report includes the prompt, labeled agent outputs, run IDs, status, duration, token/cost data when available, and an optional judge verdict.
+
 ## Inline stats
 
 After each run, harnessctl prints stats and identifiers to stderr:
@@ -53,6 +59,8 @@ After each run, harnessctl prints stats and identifiers to stderr:
 └ ✓ claude │ tokens: 1500in/800out │ cost: $0.0342 │ duration: 12.3s
   run: 1713200000000-claude  session: a3f8c012
 ```
+
+If an agent exits non-zero, harnessctl also prints the first captured diagnostic line, for example `error: Not inside a trusted directory...`, and stores the detail in the run log.
 
 ## Health checks
 

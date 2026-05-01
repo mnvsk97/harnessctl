@@ -31,6 +31,8 @@ export interface RunResult {
   duration: number;
   /** Set by invoke() after parseOutput, from adapter.detectExitReason or the shared default. */
   exitReason?: ExitReason;
+  /** Short diagnostic captured from stderr/stdout when a run fails. */
+  errorDetail?: string;
 }
 
 /** A single turn from an agent's session transcript, used for cross-agent failover. */

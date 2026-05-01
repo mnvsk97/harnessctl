@@ -26,7 +26,7 @@ Usage:
   harnessctl pipeline <prompt> [--plan <agent>] [--build <agent>] [--review <agent>]
                      [--test <agent>] [--step <agent:instruction>]...
                      [--preset <name>] [--name <label>] [--stream] [--budget <usd>]
-  harnessctl compare <prompt> [--agents <a,b,...>] [-- <extra-args>...]
+  harnessctl compare <prompt> [--agents <a,b,...>] [--judge <agent>] [-- <extra-args>...]
   harnessctl handoff <run-id> --agent <name> [--resume|--fork]
                      [--budget <usd>] [--name <label>] <prompt>
   harnessctl replay <run-id>
@@ -57,6 +57,7 @@ Auto-failover:
 
 Examples:
   harnessctl run "fix the auth bug"
+  harnessctl compare "fix the auth bug" --agents codex,claude --judge claude
   harnessctl handoff 1713364500000-claude --agent codex "add tests for that"
   harnessctl run --agent codex --resume "add tests for that"
   harnessctl run --template code-review "src/auth.ts"
@@ -174,6 +175,7 @@ async function main() {
       const compareArgs = argv.slice(1);
       const promptParts: string[] = [];
       let compareAgents: string[] | undefined;
+      let judge: string | undefined;
       const extraArgs: string[] = [];
       let pastSep = false;
 
@@ -182,6 +184,10 @@ async function main() {
         if (compareArgs[i] === "--") { pastSep = true; continue; }
         if (compareArgs[i] === "--agents" && compareArgs[i + 1]) {
           compareAgents = compareArgs[++i].split(",").map((s) => s.trim()).filter(Boolean);
+          continue;
+        }
+        if (compareArgs[i] === "--judge" && compareArgs[i + 1]) {
+          judge = compareArgs[++i];
           continue;
         }
         promptParts.push(compareArgs[i]);
@@ -196,7 +202,7 @@ async function main() {
       let pipedInput: string | undefined;
       if (!process.stdin.isTTY) pipedInput = await readStdin();
 
-      const exitCode = await compareCommand({ prompt, agents: compareAgents, extraArgs, pipedInput });
+      const exitCode = await compareCommand({ prompt, agents: compareAgents, judge, extraArgs, pipedInput });
       process.exit(exitCode);
     }
 

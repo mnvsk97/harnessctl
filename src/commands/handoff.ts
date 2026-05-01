@@ -148,6 +148,7 @@ export async function handoffCommand(argv: string[]): Promise<number> {
     agent: targetAgent,
     resume: shouldResume,
     prompt: finalPrompt,
+    displayPrompt: userPrompt,
     extraArgs,
     harnessSessionId: session.id,
     parentRunId: runId,

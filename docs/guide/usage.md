@@ -145,29 +145,40 @@ harnessctl compare "write a function to parse ISO 8601 dates"
 # Compare specific agents
 harnessctl compare "fix the auth bug" --agents codex,claude
 
+# Ask one agent to judge the comparison
+harnessctl compare "fix the auth bug" --agents codex,claude --judge claude
+
 # Pipe context in
 cat error.log | harnessctl compare "diagnose this error" --agents claude,codex,gemini
 ```
 
-Each agent runs in parallel. When all finish, harnessctl prints a summary table:
+Each agent runs in parallel. When all finish, harnessctl labels the full outputs, prints a summary table, and writes a Markdown report:
 
 ```
+── compare outputs ─────────────────────────────────────────
+codex (1713364500000-codex)
+...
+
+claude (1713364505000-claude)
+...
+
 ── compare results ─────────────────────────────────
-  ✓  codex     12.3s   $0.0045   1823 tokens
+  ✓  codex     12.3s   $0.0045   1823 tokens  1713364500000-codex
      extracted auth middleware into separate module…
-  ✓  claude     8.1s   $0.0032   1204 tokens
+  ✓  claude     8.1s   $0.0032   1204 tokens  1713364505000-claude
      refactored auth into middleware, added tests…
-  ✗  gemini    45.2s   —         —
+  ✗  gemini    45.2s   —         —            1713364510000-gemini
      rate limited after initial analysis…
+  report: .harnessctl/compare/1713364515000-compare.md
 ```
 
-Each run is logged individually, so you can hand off from any of them:
+Each run is logged individually, so you can hand off from any run ID:
 
 ```bash
 harnessctl handoff 1713364500000-codex --agent claude "review codex's approach and improve it"
 ```
 
-This is useful for benchmarking agents on your actual codebase, or for getting a second opinion on a tricky task.
+This is useful for benchmarking agents on your actual codebase, getting a second opinion on a tricky task, or creating a judgeable report without copying terminal output around.
 
 ## Pipelines
 

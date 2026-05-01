@@ -101,6 +101,39 @@ function usesJsonOutput(adapter: Adapter): boolean {
 export interface InvokeOptions {
   /** When true, stream assistant output live. When false (default), show spinner + final result only. */
   stream?: boolean;
+  /** Print the parsed final summary after the run. Default: true. */
+  printSummary?: boolean;
+}
+
+function cleanDiagnostic(text: string, maxLen = 800): string {
+  return text
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, maxLen)
+    .trim();
+}
+
+function extractDiagnostic(stdout: string, stderr: string): string {
+  const stderrDetail = cleanDiagnostic(stderr);
+  if (stderrDetail) return stderrDetail;
+
+  const lines = stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+  for (const line of lines) {
+    try {
+      const ev = JSON.parse(line);
+      if (ev?.type === "result" && ev.is_error && typeof ev.result === "string") {
+        return cleanDiagnostic(ev.result);
+      }
+    } catch { /* plain text */ }
+  }
+
+  const errorish = lines.find((line) =>
+    /\b(error|failed|unauthorized|rate limit|too many requests|context window|token budget|not inside a trusted directory)\b/i.test(line),
+  );
+  return cleanDiagnostic(errorish ?? stdout);
 }
 
 export function invoke(
@@ -198,6 +231,7 @@ export function invoke(
 
       const duration = (Date.now() - start) / 1000;
       const parsed = adapter.parseOutput(stdoutBuf, stderrBuf);
+      const diagnostic = extractDiagnostic(stdoutBuf, stderrBuf);
       const base: RunResult = {
         exitCode: code,
         summary: parsed.summary ?? "",
@@ -206,6 +240,7 @@ export function invoke(
         tokens: parsed.tokens,
         duration,
       };
+      if (code !== 0 && diagnostic) base.errorDetail = diagnostic;
       if (adapter.postRun) {
         try {
           const enriched = await adapter.postRun(intent.cwd, base, start);
@@ -226,7 +261,7 @@ export function invoke(
       }
 
       // In quiet mode, print the final result summary
-      if (!streamMode && base.summary) {
+      if (!streamMode && opts.printSummary !== false && base.summary) {
         process.stdout.write(base.summary + "\n");
       }
 

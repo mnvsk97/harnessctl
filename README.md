@@ -46,8 +46,8 @@ harnessctl pipeline "build auth module" --plan codex --build claude --test codex
 # hand off between agents
 harnessctl handoff RUN_ID --agent codex "now write tests"
 
-# compare agents side by side
-harnessctl compare "fix the bug" --agents claude,codex
+# compare agents side by side, optionally with a judge
+harnessctl compare "fix the bug" --agents claude,codex --judge claude
 ```
 
 ## Auto-failover
@@ -83,7 +83,7 @@ harnessctl handoff 1713364500000-codex --agent claude "review and add tests"
 # → run: 1713364600000-claude  session: a3f8c012  ← same session
 ```
 
-The target agent gets a lean prompt -- summary, changed files, and a pointer to the context file. Not a transcript dump.
+The target agent gets a lean prompt -- summary, changed files, and a pointer to the context file. Not a transcript dump. Logs keep the user instruction readable; the expanded context stays in `.harnessctl/handoffs/`.
 
 ## Supported agents
 

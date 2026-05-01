@@ -36,6 +36,8 @@ export interface RunOptions {
   stream?: boolean;
   /** Human-readable session name (e.g. "auth-refactor"). */
   name?: string;
+  /** Prompt shown in logs/handoff metadata when the subprocess prompt is augmented. */
+  displayPrompt?: string;
 }
 
 function pickBestAgent(by: "cost" | "speed", knownAgents: string[]): string | undefined {
@@ -158,7 +160,8 @@ async function invokeAgent(
   const result = await invoke(adapter, intent, agentConfig, { stream: opts.stream });
 
   // Write run log (with raw user prompt, not the augmented one)
-  const runId = writeRunLog(agentName, opts.prompt, cwd, result, {
+  const logPrompt = opts.displayPrompt ?? opts.prompt;
+  const runId = writeRunLog(agentName, logPrompt, cwd, result, {
     model: agentConfig.model,
     extraArgs: opts.extraArgs,
     harnessSessionId,
@@ -191,7 +194,7 @@ async function invokeAgent(
     runId,
     agent: agentName,
     sessionId: result.sessionId,
-    prompt: opts.prompt,
+    prompt: logPrompt,
     summary: result.summary ?? "",
     duration: result.duration,
     timestamp: sessionRun.timestamp,
@@ -214,6 +217,9 @@ async function invokeAgent(
   const icon = result.exitCode === 0 && result.exitReason !== "rate_limit" && result.exitReason !== "token_limit"
     ? c.green("✓") : c.red("✗");
   footer([`${icon} ${agentName}`, ...stats]);
+  if (result.exitCode !== 0 && result.errorDetail) {
+    console.error(c.dim(`  error: ${result.errorDetail.split("\n")[0]}`));
+  }
   console.error(c.dim(`  run: ${runId}  session: ${harnessSessionId}`));
 
   // Ensure exitReason is always set (defensive — invoke() already sets it).
