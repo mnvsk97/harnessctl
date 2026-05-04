@@ -14,8 +14,8 @@
   ],
   "scripts": {
     "dev": "bun run src/cli.ts",
-    "build": "bun build --compile src/cli.ts --outfile harnessctl",
-    "bundle": "bun build src/cli.ts --outdir dist --target node --format esm && node -e \"const f='dist/cli.js';let c=require('fs').readFileSync(f,'utf8');c=c.replace(/^#!.*\\n(\\/\\/ @bun\\n)?/,'#!/usr/bin/env node\\n');require('fs').writeFileSync(f,c)\"",
+    "build": "VERSION=$(node -p \"require('./package.json').version\") && bun build --compile src/cli.ts --outfile harnessctl --define HARNESSCTL_VERSION='\"'$VERSION'\"'",
+    "bundle": "VERSION=$(node -p \"require('./package.json').version\") && bun build src/cli.ts --outdir dist --target node --format esm --define HARNESSCTL_VERSION='\"'$VERSION'\"' && node -e \"const f='dist/cli.js';let c=require('fs').readFileSync(f,'utf8');c=c.replace(/^#!.*\\n(\\/\\/ @bun\\n)?/,'#!/usr/bin/env node\\n');require('fs').writeFileSync(f,c)\"",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "prepublishOnly": "bun run bundle"

@@ -112,10 +112,11 @@ jobs:
       - name: Build binary
         shell: bash
         run: |
+          VERSION=$(node -p "require('./package.json').version")
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            bun build --compile src/cli.ts --outfile harnessctl.exe
+            bun build --compile src/cli.ts --outfile harnessctl.exe --define HARNESSCTL_VERSION='"'$VERSION'"'
           else
-            bun build --compile src/cli.ts --outfile harnessctl
+            bun build --compile src/cli.ts --outfile harnessctl --define HARNESSCTL_VERSION='"'$VERSION'"'
           fi
 
       - name: Smoke test binary
@@ -126,6 +127,7 @@ jobs:
           else
             BIN=./harnessctl
           fi
+          $BIN --version
           $BIN --help | head -4
           $BIN list
           $BIN doctor || true

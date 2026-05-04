@@ -75,7 +75,11 @@ export class Spinner {
   private text: string;
 
   constructor(text: string) {
-    this.text = text;
+    this.text = this.cleanText(text);
+  }
+
+  private cleanText(text: string): string {
+    return text.replace(/\\[rn]/g, " ").replace(/\s+/g, " ").trim();
   }
 
   start(): void {
@@ -88,7 +92,7 @@ export class Spinner {
   }
 
   update(text: string): void {
-    this.text = text;
+    this.text = this.cleanText(text);
   }
 
   stop(): void {

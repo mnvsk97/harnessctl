@@ -42,7 +42,11 @@ function extractDisplayText(jsonLine: string): string {
  * Extract a short status hint from a JSON stream line for the spinner.
  * Returns a brief description of what the agent is doing, or undefined to keep current text.
  */
-function extractStatusHint(jsonLine: string): string | undefined {
+function compactStatusText(text: string): string {
+  return text.replace(/\\[rn]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function extractStatusHint(jsonLine: string): string | undefined {
   try {
     const ev = JSON.parse(jsonLine);
 
@@ -70,7 +74,9 @@ function extractStatusHint(jsonLine: string): string | undefined {
     if (ev.type === "item.started" && ev.item?.type === "command_execution") {
       const cmd = ev.item.command ?? "";
       // Strip shell wrapper to show the actual command
-      const inner = cmd.replace(/^\/bin\/\w+\s+-lc\s+/, "").replace(/^["']|["']$/g, "");
+      const inner = compactStatusText(
+        cmd.replace(/^\/bin\/\w+\s+-lc\s+/, "").replace(/^["']|["']$/g, ""),
+      );
       return inner ? `running: ${inner.slice(0, 50)}` : "running command...";
     }
 

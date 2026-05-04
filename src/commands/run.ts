@@ -18,7 +18,7 @@ const BUDGET_WARNING_THRESHOLD = 0.8;
 
 export interface RunOptions {
   agent?: string;
-  resume?: boolean;
+  resume?: boolean | string;
   cheapest?: boolean;
   fastest?: boolean;
   prompt: string;
@@ -332,10 +332,11 @@ export async function runCommand(opts: RunOptions): Promise<number> {
   let harnessSessionId = opts.harnessSessionId;
   let resumedSession: ReturnType<typeof loadLatestSession> = null;
   if (!harnessSessionId) {
-    // If --resume, try to find a session (by name or latest)
+    // If --resume, try to find a session (by explicit ref, name, or latest)
     if (opts.resume) {
-      const resolved = opts.name
-        ? resolveSessionRef(cwd, opts.name)
+      const ref = typeof opts.resume === "string" ? opts.resume : opts.name;
+      const resolved = ref
+        ? resolveSessionRef(cwd, ref)
         : loadLatestSession(cwd);
       if (resolved) {
         resumedSession = resolved;
@@ -344,6 +345,9 @@ export async function runCommand(opts: RunOptions): Promise<number> {
           harnessSessionId = resolved.id;
           opts.harnessSessionId = harnessSessionId;
         }
+      } else if (ref) {
+        console.error(`Error: session "${ref}" not found`);
+        process.exit(1);
       }
     }
     // Still no session → create a fresh one

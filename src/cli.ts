@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { readFileSync } from "node:fs";
 import { ensureInit } from "./config.ts";
 import { runCommand } from "./commands/run.ts";
 import { listCommand } from "./commands/list.ts";
@@ -15,11 +16,31 @@ import { modelsCommand } from "./commands/models.ts";
 import { handoffCommand } from "./commands/handoff.ts";
 import { pipelineCommand, parsePipelineArgs } from "./commands/pipeline.ts";
 
+declare const HARNESSCTL_VERSION: string | undefined;
+
+function resolveVersion(): string {
+  if (typeof HARNESSCTL_VERSION === "string" && HARNESSCTL_VERSION.length > 0) {
+    return HARNESSCTL_VERSION;
+  }
+
+  try {
+    const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf-8")) as { version?: unknown };
+    if (typeof packageJson.version === "string") return packageJson.version;
+  } catch {
+    // Ignore and fall through to a stable placeholder for unusual packaged runtimes.
+  }
+
+  return "unknown";
+}
+
+const VERSION = resolveVersion();
+
 const USAGE = `harnessctl — universal coding agent CLI
 
 Usage:
+  harnessctl --version
   harnessctl setup
-  harnessctl run [--agent <name>] [--resume] [--stream] [--cheapest] [--fastest]
+  harnessctl run [--agent <name>] [--resume [<session-id>]] [--stream] [--cheapest] [--fastest]
                  [--template <name>] [--budget <usd>] [--name <label>]
                  <prompt> [-- <extra-args>...]
   harnessctl shell [--agent <name>] [--name <label>] [-- <extra-args>...]
@@ -39,8 +60,9 @@ Usage:
   harnessctl config get|set|set-fallback|get-fallback|remove-fallback ...
 
 Options:
+  --version, -v      Print harnessctl version
   --agent <name>      Agent to use (default: from config)
-  --resume            Resume last session (or handoff if agent changed)
+  --resume [<id>]     Resume last session, or a specific one by ID/name
   --cheapest          Pick the agent with lowest avg cost from run history
   --fastest           Pick the agent with lowest avg duration from run history
   --template <name>   Wrap prompt in a template from ~/.harnessctl/templates/
@@ -70,8 +92,6 @@ Examples:
 `;
 
 async function main() {
-  ensureInit();
-
   const argv = process.argv.slice(2);
 
   if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
@@ -79,13 +99,20 @@ async function main() {
     process.exit(0);
   }
 
+  if (argv[0] === "--version" || argv[0] === "-v" || argv[0] === "version") {
+    console.log(VERSION);
+    process.exit(0);
+  }
+
+  ensureInit();
+
   const command = argv[0];
 
   switch (command) {
     case "run": {
       const args = argv.slice(1);
       let agent: string | undefined;
-      let resume = false;
+      let resume: boolean | string = false;
       let cheapest = false;
       let fastest = false;
       let stream = false;
@@ -103,7 +130,11 @@ async function main() {
           if (i + 1 >= args.length) { console.error("Error: --agent requires a value"); process.exit(1); }
           agent = args[++i]; continue;
         }
-        if (args[i] === "--resume" || args[i] === "-r") { resume = true; continue; }
+        if (args[i] === "--resume" || args[i] === "-r") {
+          const next = args[i + 1];
+          if (next && !next.startsWith("-")) { resume = next; i++; } else { resume = true; }
+          continue;
+        }
         if (args[i] === "--stream" || args[i] === "-s") { stream = true; continue; }
         if (args[i] === "--cheapest") { cheapest = true; continue; }
         if (args[i] === "--fastest") { fastest = true; continue; }

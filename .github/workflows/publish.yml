@@ -123,6 +123,7 @@ jobs:
       - name: Build binary
         shell: bash
         run: |
+          VERSION="${{ needs.version-and-tag.outputs.new_version }}"
           TARGET_FLAG=""
           case "${{ matrix.target }}" in
             linux-x64)     TARGET_FLAG="--target=bun-linux-x64" ;;
@@ -132,9 +133,9 @@ jobs:
             windows-x64)   TARGET_FLAG="--target=bun-windows-x64" ;;
           esac
           if [ "${{ matrix.target }}" = "windows-x64" ]; then
-            bun build --compile $TARGET_FLAG src/cli.ts --outfile harnessctl-${{ matrix.target }}.exe
+            bun build --compile $TARGET_FLAG src/cli.ts --outfile harnessctl-${{ matrix.target }}.exe --define HARNESSCTL_VERSION='"'$VERSION'"'
           else
-            bun build --compile $TARGET_FLAG src/cli.ts --outfile harnessctl-${{ matrix.target }}
+            bun build --compile $TARGET_FLAG src/cli.ts --outfile harnessctl-${{ matrix.target }} --define HARNESSCTL_VERSION='"'$VERSION'"'
           fi
 
       - uses: actions/upload-artifact@v4
