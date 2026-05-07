@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths-ignore:
+      - ".github/**"
       - "*.md"
       - "docs/**"
       - "LICENSE"
@@ -23,7 +24,7 @@ jobs:
     outputs:
       should_publish: ${{ steps.guard.outputs.should_publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check if version bump commit
         id: guard
         run: |
@@ -41,11 +42,11 @@ jobs:
     outputs:
       new_version: ${{ steps.bump.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "24"
 
@@ -110,11 +111,11 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: main
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
 
@@ -138,7 +139,7 @@ jobs:
             bun build --compile $TARGET_FLAG src/cli.ts --outfile harnessctl-${{ matrix.target }} --define HARNESSCTL_VERSION='"'$VERSION'"'
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: harnessctl-${{ matrix.target }}
           path: harnessctl-${{ matrix.target }}*
@@ -147,13 +148,13 @@ jobs:
     needs: [version-and-tag, build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: "v${{ needs.version-and-tag.outputs.new_version }}"
           files: artifacts/*
@@ -163,15 +164,15 @@ jobs:
     needs: [version-and-tag, build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: main
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"

@@ -49,6 +49,8 @@ bash test/sim-fallback.sh
   binaries, local `.harnessctl/` state, or `node_modules/`.
 - For Symphony-managed work, follow `WORKFLOW.md` and keep the Linear
   `## Symphony Workpad` comment current.
+- GitHub Actions must use action versions and configured Node versions that run
+  on Node 22 or newer. Do not add Node 20 or Node 18 Actions lanes.
 
 ## Validation Guidance
 

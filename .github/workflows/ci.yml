@@ -15,8 +15,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
       - run: bun install
@@ -65,8 +65,8 @@ jobs:
     name: "Unit tests"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
       - run: bun install
@@ -82,8 +82,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
       - run: bun install
@@ -103,8 +103,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
       - run: bun install
@@ -138,8 +138,8 @@ jobs:
     name: "npm install (bun runtime)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
       - run: bun install
@@ -173,11 +173,11 @@ jobs:
     name: "npm install (Node 22, no bun)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
 
@@ -203,18 +203,18 @@ jobs:
           harnessctl list
           harnessctl config get
 
-  # ── npm install with Node 18 (oldest supported) ─────────
-  npm-install-node18:
-    name: "npm install (Node 18)"
+  # ── npm install with the current Node LTS/runtime floor ──
+  npm-install-node24:
+    name: "npm install (Node 24)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: "18"
+          node-version: "24"
 
       - run: bun install
 
@@ -236,8 +236,8 @@ jobs:
     name: "Piped stdin"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
       - run: bun install
@@ -258,7 +258,7 @@ jobs:
     name: "Install scripts (syntax check)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Shell script syntax
         run: bash -n install/install.sh
@@ -273,8 +273,8 @@ jobs:
     name: "Bundle integrity"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: latest
       - run: bun install
