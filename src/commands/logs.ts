@@ -35,11 +35,14 @@ function truncate(s: string, max: number): string {
 
 export function logsCommand(args: string[]): void {
   let agentFilter: string | undefined;
+  let runIdFilter: string | undefined;
   let limit = 20;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--agent" && args[i + 1]) {
       agentFilter = args[++i];
+    } else if (args[i] === "--run-id" && args[i + 1]) {
+      runIdFilter = args[++i];
     } else if (args[i] === "--limit" && args[i + 1]) {
       const n = parseInt(args[++i], 10);
       if (!isNaN(n) && n > 0) limit = n;
@@ -54,10 +57,16 @@ export function logsCommand(args: string[]): void {
     entries = entries.filter((e) => e.log.agent === agentFilter);
   }
 
-  entries = entries.slice(0, limit);
+  if (runIdFilter) {
+    const target = runIdFilter.endsWith(".json") ? runIdFilter : `${runIdFilter}.json`;
+    const exact = entries.find((e) => e.file === target);
+    entries = exact ? [exact] : entries.filter((e) => e.file.startsWith(runIdFilter));
+  } else {
+    entries = entries.slice(0, limit);
+  }
 
   if (entries.length === 0) {
-    console.log("No runs logged yet.");
+    console.log(runIdFilter ? `No run found for run ID: ${runIdFilter}` : "No runs logged yet.");
     return;
   }
 

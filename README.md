@@ -1,156 +1,172 @@
 # harnessctl
 
-**One CLI for all your coding agents**
+**One command for Claude Code, Codex, Gemini, Cursor, OpenCode, and custom coding agents.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/harnessctl)](https://www.npmjs.com/package/harnessctl)
 
----
+`harnessctl` is a small CLI that lets you run, compare, hand off, and fail over between coding-agent CLIs without changing how you work.
 
-Routers started at the API level: distribute workloads across pods, keep sessions sticky, classify requests, and send traffic to the right place.
+Use it when one agent is better at planning, another is better at editing, and a third is available when the first one hits a rate limit.
 
-Then LLM routers showed up. If you were building an app, you could switch between models based on complexity, intent, cost, latency, time to first token, or whatever else mattered for that request. The point was simple: get the best model for the job without rewriting your app every time the model landscape changed.
-
-The natural next step is routing between agent harnesses.
-
-An agent harness is the full coding-agent runtime around the model: the CLI, tools, memory, prompting style, session format, approvals, repo context, and all the small choices that shape how the agent actually works. Claude Code, Codex, OpenCode, Cursor CLI, and Gemini CLI are not interchangeable wrappers around the same thing. They behave differently, and those differences matter.
-
-harnessctl is an attempt to make switching between harnesses easy. Use Codex for one task, Claude Code for another, compare Gemini against Cursor, or hand off midway when one harness has the feature or behavior you need.
+## Install
 
 ```bash
 npm install -g harnessctl
 harnessctl setup
 ```
 
-## Why switch harnesses?
-
-- Distribute cost and spend across providers instead of piling everything onto one tool.
-- Constantly compare what works best for your actual workflow. There is no one-harness-fits-all answer. The best choice depends on how you prompt, how you manage memory, how your repo is structured, and what kind of app you are building.
-- Pick based on evidence, not whatever tweet says "Codex is the best now" this week.
-- Use the best part of each harness. Maybe one has better session resume, another has better repo edits, another has a feature you need halfway through a session.
-- Keep moving when a harness hits auth issues, rate limits, missing features, or just starts doing the wrong thing.
-
-## What it does
+Or use Homebrew:
 
 ```bash
-# run any agent
-harnessctl run "fix the auth bug"
-harnessctl run --agent codex "refactor the database layer"
-
-# interactive shell
-harnessctl shell --agent claude
-
-# multi-agent pipeline
-harnessctl pipeline "build auth module" --plan codex --build claude --test codex
-
-# hand off between agents
-harnessctl handoff RUN_ID --agent codex "now write tests"
-
-# compare agents side by side, optionally with a judge
-harnessctl compare "fix the bug" --agents claude,codex --judge claude
+brew install mnvsk97/tap/harnessctl
 ```
 
-## Auto-failover
+Other options:
 
-Agent hits a rate limit? harnessctl silently picks up with the fallback. No prompt, no lost context.
+```bash
+# Linux / macOS binary installer
+curl -fsSL https://raw.githubusercontent.com/mnvsk97/harnessctl/main/install/install.sh | bash
+
+# From source
+git clone https://github.com/mnvsk97/harnessctl.git
+cd harnessctl
+bun install
+bun run src/cli.ts --help
+```
+
+## Quick Start
+
+```bash
+# Run the default agent
+harnessctl run "fix the auth bug"
+
+# Pick an agent
+harnessctl run --agent codex "refactor the database layer"
+
+# Open an interactive agent shell
+harnessctl shell --agent claude
+
+# Check configured agents
+harnessctl doctor
+```
+
+## Core Workflows
+
+### Hand Off Between Agents
+
+Every run gets a run ID. Use it to continue with another agent.
+
+```bash
+harnessctl run --agent codex "refactor auth"
+# run: 1713364500000-codex
+
+harnessctl handoff 1713364500000-codex --agent claude "review and add tests"
+```
+
+The next agent gets a compact handoff: original task, summary, changed files, and a pointer to the full context file under `.harnessctl/handoffs/`.
+
+### Compare Agents
+
+Run the same prompt across agents and optionally ask a judge agent to pick the best result.
+
+```bash
+harnessctl compare "fix this bug" --agents codex,claude
+harnessctl compare "fix this bug" --agents codex,claude --judge claude
+```
+
+### Run Pipelines
+
+Chain agents through different stages of a task.
+
+```bash
+harnessctl pipeline "build auth module" --plan codex --build claude --test codex
+```
+
+### Fail Over Automatically
+
+Configure a fallback agent for rate limits, token limits, or auth failures.
 
 ```yaml
 # ~/.harnessctl/agents/claude.yaml
 fallback: codex
 auto_failover: true
-failover_transfer: transcript   # full conversation, or "summary"
+failover_transfer: transcript
 ```
 
-```
-⚠ claude hit rate_limit (auto-failover → codex)
-  handing off to codex...
-┌ harnessctl │ codex │ authenticated
-  ... codex continues with full context ...
-└ ✓ codex │ duration: 14.2s
-```
+When Claude fails for a limit/auth reason, `harnessctl` hands the task to Codex with context.
 
-Supports chained fallback (claude → codex → gemini), cycle detection, and configurable transfer modes.
-
-## Cross-agent handoff
-
-Every run prints a run ID. Use it to hand off to another agent:
+## Useful Commands
 
 ```bash
-harnessctl run --agent codex "refactor auth module"
-# → run: 1713364500000-codex  session: a3f8c012
+harnessctl list                         # installed/configured agents
+harnessctl doctor                       # health checks
+harnessctl models --agent codex         # known models for an agent
 
-harnessctl handoff 1713364500000-codex --agent claude "review and add tests"
-# → run: 1713364600000-claude  session: a3f8c012  ← same session
+harnessctl logs                         # recent run history
+harnessctl logs --run-id RUN_ID         # one run only
+harnessctl replay RUN_ID                # rerun a previous prompt
+harnessctl stats --cost                 # spend summary
+
+harnessctl run --resume "continue"      # resume latest harness session
+harnessctl run --name auth-fix "fix"    # name a session
+harnessctl run --template review "src"  # use a prompt template
+harnessctl run --budget 2.00 "task"     # daily spend guardrail
+
+harnessctl context set "Node 22, postgres, follow existing patterns"
+harnessctl context sync
 ```
 
-The target agent gets a lean prompt -- summary, changed files, and a pointer to the context file. Not a transcript dump. Logs keep the user instruction readable; the expanded context stays in `.harnessctl/handoffs/`.
+## Supported Agents
 
-## Supported agents
+| Agent | Native resume | Transcript handoff | Failover |
+| --- | --- | --- | --- |
+| Claude Code | yes | full | full |
+| Codex | no | full | full |
+| Gemini | yes | full | summary |
+| Cursor | yes | full | summary |
+| OpenCode | no | no | summary |
+| Custom YAML | configurable | no | summary |
 
-| Agent | Resume | Transcript | Failover |
-|---|---|---|---|
-| Claude Code | native session resume | full transcript | full |
-| Codex | -- | full transcript | full |
-| Gemini | native session resume | full transcript | summary |
-| Cursor | native session resume | full transcript | summary |
-| OpenCode | -- | -- | summary |
-| Custom (YAML) | configurable | -- | summary |
+Custom agents live in `~/.harnessctl/agents/<name>.yaml`.
 
-## More features
+## Configuration
+
+First run creates:
+
+```text
+~/.harnessctl/
+  config.yaml
+  agents/
+  runs/
+  sessions/
+  templates/
+  pipelines/
+```
+
+Common settings:
 
 ```bash
-harnessctl run --resume "continue where you left off"
-harnessctl run --cheapest "simple task"              # pick by cost history
-harnessctl run --fastest "quick fix"                 # pick by speed history
-harnessctl run --name auth-refactor "fix auth"       # named session
-harnessctl run --template code-review "src/auth.ts"  # reusable prompt templates
-harnessctl run --budget 2.00 "refactor payments"     # daily spend cap
-cat error.log | harnessctl run "fix this"            # pipe context in
-harnessctl run --agent claude "fix" -- --max-turns 5 # passthrough flags
-
-harnessctl stats --cost         # cost dashboard
-harnessctl logs                 # run history with session chains
-harnessctl replay RUN_ID        # re-run a past invocation
-harnessctl doctor               # health check all agents
-harnessctl context set "Go 1.22, postgres"  # project context (synced to CLAUDE.md, AGENTS.md, etc.)
+harnessctl config set default codex
+harnessctl config set-fallback claude codex --auto
+harnessctl config get
 ```
 
-## Example notebooks
-
-Command walkthroughs live in [`docs/examples/notebooks`](docs/examples/notebooks/):
-
-- Quickstart handoff: Codex to Claude Code
-- Compare and judge: run agents side by side and add a judge
-- Pipelines and fallback: chain stages and configure fallback basics
-
-## Install
+## Development
 
 ```bash
-npm install -g harnessctl
-# or
-brew install mnvsk97/tap/harnessctl
+bun install
+bun run src/cli.ts --help
+bun test
+bun run typecheck
+bun run bundle
+bash test/sim-headless-failover.sh
+bash test/sim-fallback.sh
 ```
 
-Other methods:
+## Docs
 
-```bash
-# shell script
-curl -fsSL https://raw.githubusercontent.com/mnvsk97/harnessctl/main/install/install.sh | bash
-
-# from source
-git clone https://github.com/mnvsk97/harnessctl.git
-cd harnessctl && bun install
-bun run src/cli.ts run "hello"
-```
-
-## Tests
-
-```bash
-bun test                                 # unit tests
-bun run typecheck                        # TypeScript check
-bash test/sim-headless-failover.sh       # headless auto-failover (14 tests)
-bash test/sim-fallback.sh                # shell fallback with expect (10 tests)
-```
+More detailed guides live in [`docs/guide`](docs/guide/), and example notebooks live in [`docs/examples/notebooks`](docs/examples/notebooks/).
 
 ## License
 

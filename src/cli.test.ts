@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,6 +17,10 @@ async function runCli(args: string[]) {
   const home = mkdtempSync(join(tmpdir(), "harnessctl-cli-"));
   tempHomes.push(home);
 
+  return runCliWithHome(args, home);
+}
+
+async function runCliWithHome(args: string[], home: string) {
   const proc = Bun.spawn({
     cmd: [process.execPath, "run", cliPath, ...args],
     env: { ...Bun.env, HOME: home },
@@ -31,6 +35,23 @@ async function runCli(args: string[]) {
   ]);
 
   return { stdout, stderr, exitCode };
+}
+
+function writeRunFixture(home: string, runId: string, prompt: string, agent = "codex") {
+  const runsDir = join(home, ".harnessctl", "runs");
+  mkdirSync(runsDir, { recursive: true });
+  writeFileSync(join(runsDir, `${runId}.json`), JSON.stringify({
+    agent,
+    prompt,
+    cwd: "/tmp/example",
+    result: {
+      exitCode: 0,
+      summary: "done",
+      duration: 1.2,
+      exitReason: "success",
+    },
+    timestamp: "2026-05-07T12:00:00.000Z",
+  }, null, 2));
 }
 
 describe("cli version", () => {
@@ -56,5 +77,22 @@ describe("cli version", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout.trim()).toBe(packageJson.version);
     expect(result.stderr).toBe("");
+  });
+});
+
+describe("cli logs", () => {
+  test("filters logs to a specific run ID", async () => {
+    const home = mkdtempSync(join(tmpdir(), "harnessctl-cli-"));
+    tempHomes.push(home);
+    writeRunFixture(home, "1778171521246-codex", "selected prompt", "codex");
+    writeRunFixture(home, "1778171521247-claude", "other prompt", "claude");
+
+    const result = await runCliWithHome(["logs", "--run-id", "1778171521246-codex"], home);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("1778171521246-codex");
+    expect(result.stdout).toContain("selected prompt");
+    expect(result.stdout).not.toContain("1778171521247-claude");
+    expect(result.stdout).not.toContain("other prompt");
   });
 });

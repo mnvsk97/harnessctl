@@ -35,7 +35,7 @@ Each log file contains:
 }
 ```
 
-The `harnessSessionId` links runs in the same handoff chain. The `parentRunId` points to the run this was handed off from (if any). Use `harnessctl logs` to see run IDs, session IDs, and handoff chains.
+The `harnessSessionId` links runs in the same handoff chain. The `parentRunId` points to the run this was handed off from (if any). Use `harnessctl logs` to see run IDs, session IDs, and handoff chains. Use `harnessctl logs --run-id <id>` to show only one run.
 
 ## Handoff context files
 

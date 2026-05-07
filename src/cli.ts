@@ -54,7 +54,7 @@ Usage:
   harnessctl context get|set|edit|clear|sync|path
   harnessctl list
   harnessctl stats [--cost]
-  harnessctl logs [--agent <name>] [--limit N]
+  harnessctl logs [--agent <name>] [--run-id <id>] [--limit N]
   harnessctl doctor [--mcp]
   harnessctl models --agent <name>
   harnessctl config get|set|set-fallback|get-fallback|remove-fallback ...
