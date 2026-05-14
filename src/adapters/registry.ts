@@ -5,6 +5,7 @@ import { codexAdapter } from "./codex.ts";
 import { opencodeAdapter } from "./opencode.ts";
 import { geminiAdapter } from "./gemini.ts";
 import { cursorAdapter } from "./cursor.ts";
+import { deepagentsAdapter } from "./deepagents.ts";
 
 const builtinAdapters: Record<string, Adapter> = {
   claude: claudeAdapter,
@@ -12,6 +13,7 @@ const builtinAdapters: Record<string, Adapter> = {
   opencode: opencodeAdapter,
   gemini: geminiAdapter,
   cursor: cursorAdapter,
+  deepagents: deepagentsAdapter,
 };
 
 /** Reject commands containing shell metacharacters or path traversal. */
@@ -97,9 +99,10 @@ export function listAdapterNames(): string[] {
 /**
  * Run the adapter's auth check and return the result.
  */
-export function checkAuth(adapter: Adapter): AuthCheckResult {
+export function checkAuth(adapter: Adapter, env: Record<string, string> = {}): AuthCheckResult {
   const check = adapter.authCheck();
   const result = spawnSync(check.cmd, check.args, {
+    env: { ...process.env, ...env },
     timeout: 10000,
     stdio: "pipe",
   });
@@ -115,11 +118,24 @@ export function checkAuth(adapter: Adapter): AuthCheckResult {
     return { ok: false, message: `auth check failed: ${err.message}` };
   }
 
-  return check.parse(
-    result.stdout?.toString() ?? "",
-    result.stderr?.toString() ?? "",
-    result.status,
-  );
+  const previous: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(env)) {
+    previous[key] = process.env[key];
+    process.env[key] = value;
+  }
+
+  try {
+    return check.parse(
+      result.stdout?.toString() ?? "",
+      result.stderr?.toString() ?? "",
+      result.status,
+    );
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 }
 
 /**

@@ -32,7 +32,7 @@ harnessctl run --fastest "quick fix"       # lowest avg duration
 
 ```bash
 # Resume with the same agent
-harnessctl run --resume "now add tests for that"
+harnessctl run "now add tests for that" --resume
 harnessctl run -r "continue with error handling"
 ```
 

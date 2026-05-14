@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { listAdapterNames, getAdapter } from "../adapters/registry.ts";
 import { loadAgentConfig } from "../config.ts";
 
@@ -53,6 +53,7 @@ export function syncMemory(cwd: string, content: string): string[] {
       const existing = existsSync(path) ? readFileSync(path, "utf-8") : "";
       const next = injectManagedBlock(existing, content);
       if (next !== existing) {
+        mkdirSync(dirname(path), { recursive: true });
         writeFileSync(path, next);
         touched.push(adapter.memoryFile);
       }

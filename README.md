@@ -1,6 +1,6 @@
 # harnessctl
 
-**One command for Claude Code, Codex, Gemini, Cursor, OpenCode, and custom coding agents.**
+**One command for Claude Code, Codex, DeepAgents, Gemini, Cursor, OpenCode, and custom coding agents.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/harnessctl)](https://www.npmjs.com/package/harnessctl)
@@ -43,6 +43,7 @@ harnessctl run "fix the auth bug"
 
 # Pick an agent
 harnessctl run --agent codex "refactor the database layer"
+harnessctl run --agent deepagents "run the tests and fix failures"
 
 # Open an interactive agent shell
 harnessctl shell --agent claude
@@ -108,7 +109,7 @@ harnessctl logs --run-id RUN_ID         # one run only
 harnessctl replay RUN_ID                # rerun a previous prompt
 harnessctl stats --cost                 # spend summary
 
-harnessctl run --resume "continue"      # resume latest harness session
+harnessctl run "continue" --resume      # resume latest harness session
 harnessctl run --name auth-fix "fix"    # name a session
 harnessctl run --template review "src"  # use a prompt template
 harnessctl run --budget 2.00 "task"     # daily spend guardrail
@@ -123,12 +124,27 @@ harnessctl context sync
 | --- | --- | --- | --- |
 | Claude Code | yes | full | full |
 | Codex | no | full | full |
+| DeepAgents | yes | summary + session DB pointer | summary |
 | Gemini | yes | full | summary |
 | Cursor | yes | full | summary |
 | OpenCode | no | no | summary |
 | Custom YAML | configurable | no | summary |
 
 Custom agents live in `~/.harnessctl/agents/<name>.yaml`.
+
+### DeepAgents
+
+DeepAgents support uses the CLI's non-interactive stdin mode, so it behaves like the other headless harnessctl adapters:
+
+```bash
+harnessctl run --agent deepagents "fix the failing tests"
+harnessctl run --agent deepagents "continue that change" --resume
+harnessctl run --agent deepagents -- --agent backend-dev
+```
+
+The adapter invokes `deepagents --stdin --auto-approve --shell-allow-list recommended --quiet --no-stream`. To pass DeepAgents-specific flags, put them after `--` or in `~/.harnessctl/agents/deepagents.yaml` under `extra_args`. Project context syncs to DeepAgents' native `.deepagents/AGENTS.md` file.
+
+Before running DeepAgents through harnessctl, configure provider credentials with DeepAgents' `/auth` flow, or set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_CLOUD_PROJECT`, or the matching `DEEPAGENTS_CLI_*` variant in your shell, project `.env`, `~/.deepagents/.env`, `~/.harnessctl/.env`, project `.harnessctl/.env`, or `~/.harnessctl/agents/deepagents.yaml` under `env`.
 
 ## Configuration
 
@@ -162,7 +178,11 @@ bun run typecheck
 bun run bundle
 bash test/sim-headless-failover.sh
 bash test/sim-fallback.sh
+bash test/sim-deepagents.sh
+bash test/real-deepagents-smoke.sh
 ```
+
+`test/real-deepagents-smoke.sh` uses configured DeepAgents provider credentials when available. If no credential is configured, it runs the installed DeepAgents CLI with a temporary local `class_path` chat model so the harnessctl subprocess path is still exercised end to end without external secrets.
 
 ## Docs
 

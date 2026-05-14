@@ -154,7 +154,8 @@ export async function compareCommand(opts: CompareOptions): Promise<number> {
       continue;
     }
 
-    const auth = checkAuth(adapter);
+    const env = resolveEnv(agentConfig.env ?? {});
+    const auth = checkAuth(adapter, env);
     if (!auth.ok) {
       console.error(c.dim(`  skipping ${agentName}: ${auth.message}`));
       continue;
@@ -165,7 +166,7 @@ export async function compareCommand(opts: CompareOptions): Promise<number> {
       model: agentConfig.model,
       cwd,
       extraArgs: [...(agentConfig.extra_args ?? []), ...opts.extraArgs],
-      env: resolveEnv(agentConfig.env ?? {}),
+      env,
     };
 
     validTasks.push({ agent: agentName, intent, adapterRef: adapter, agentConfigRef: agentConfig });
@@ -208,7 +209,8 @@ export async function compareCommand(opts: CompareOptions): Promise<number> {
   if (opts.judge) {
     const judgeConfig = loadAgentConfig(opts.judge);
     const judgeAdapter = getAdapter(opts.judge, judgeConfig);
-    const auth = checkAuth(judgeAdapter);
+    const judgeEnv = resolveEnv(judgeConfig.env ?? {});
+    const auth = checkAuth(judgeAdapter, judgeEnv);
     if (!auth.ok) {
       judgeOutcome = { agent: opts.judge, result: null, error: auth.message };
     } else {
@@ -217,7 +219,7 @@ export async function compareCommand(opts: CompareOptions): Promise<number> {
         model: judgeConfig.model,
         cwd,
         extraArgs: [...(judgeConfig.extra_args ?? []), ...opts.extraArgs],
-        env: resolveEnv(judgeConfig.env ?? {}),
+        env: judgeEnv,
       };
       try {
         const result = await invoke(judgeAdapter, judgeIntent, judgeConfig, { printSummary: false });

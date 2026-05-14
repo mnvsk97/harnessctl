@@ -92,6 +92,13 @@ export function extractStatusHint(jsonLine: string): string | undefined {
 
     // Codex --json: turn complete
     if (ev.type === "turn.completed") return "done";
+
+    // DeepAgents management-style JSON, if enabled in a future CLI release.
+    if (ev.type === "tool" && ev.name) return `using ${ev.name}...`;
+    if (ev.type === "message" && typeof ev.content === "string") {
+      const preview = ev.content.slice(0, 60).replace(/\n/g, " ").trim();
+      if (preview) return preview + (ev.content.length > 60 ? "..." : "");
+    }
   } catch { /* not JSON */ }
   return undefined;
 }
