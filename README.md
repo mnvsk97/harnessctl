@@ -132,7 +132,42 @@ harnessctl context sync
 
 Custom agents live in `~/.harnessctl/agents/<name>.yaml`.
 
-### DeepAgents
+### Setup Checklists
+
+Each underlying coding harness must be installed and authenticated before harnessctl can run it. Use `harnessctl doctor` after setup to confirm the selected harness is ready.
+
+<details>
+<summary><strong>Claude Code setup</strong></summary>
+
+Required before use:
+
+```bash
+claude --version
+claude auth login
+harnessctl doctor
+```
+
+Harnessctl invokes Claude Code in print mode and reads native session JSONL files from `~/.claude/projects` for richer handoffs.
+
+</details>
+
+<details>
+<summary><strong>Codex setup</strong></summary>
+
+Required before use:
+
+```bash
+codex --version
+codex login
+harnessctl doctor
+```
+
+Codex can authenticate with ChatGPT login or an API key. Harnessctl invokes Codex with `codex exec` for headless runs.
+
+</details>
+
+<details>
+<summary><strong>DeepAgents setup</strong></summary>
 
 DeepAgents support uses the CLI's non-interactive stdin mode, so it behaves like the other headless harnessctl adapters:
 
@@ -166,6 +201,98 @@ use_responses_api = false
 # ~/.deepagents/.env
 GATEWAY_API_KEY=...
 ```
+
+Check setup:
+
+```bash
+deepagents --version
+deepagents -n "Say hello" -q --no-stream
+harnessctl doctor
+```
+
+</details>
+
+<details>
+<summary><strong>Gemini setup</strong></summary>
+
+Required before use:
+
+```bash
+gemini --version
+harnessctl doctor
+```
+
+Authenticate by running `gemini` interactively, or set one of the supported environment paths before running harnessctl:
+
+```bash
+export GEMINI_API_KEY=...
+# or use Vertex AI configuration
+export GOOGLE_GENAI_USE_VERTEXAI=true
+```
+
+Harnessctl invokes Gemini with stream JSON output and `--yolo` for headless execution.
+
+</details>
+
+<details>
+<summary><strong>Cursor setup</strong></summary>
+
+Required before use:
+
+```bash
+agent --version
+agent login
+harnessctl doctor
+```
+
+You can also set `CURSOR_API_KEY` instead of using `agent login`. Harnessctl invokes Cursor's `agent` CLI in print/headless mode.
+
+</details>
+
+<details>
+<summary><strong>OpenCode setup</strong></summary>
+
+Required before use:
+
+```bash
+opencode --version
+opencode auth login
+harnessctl doctor
+```
+
+Harnessctl invokes OpenCode with `opencode --pipe`, so the OpenCode CLI must already be configured with whatever provider credentials your OpenCode setup needs.
+
+</details>
+
+<details>
+<summary><strong>Custom YAML harness setup</strong></summary>
+
+Custom harnesses live at:
+
+```text
+~/.harnessctl/agents/<name>.yaml
+```
+
+Minimal shape:
+
+```yaml
+cmd: your-agent-command
+args: ["--headless"]
+stdin: true
+timeout: 300
+env:
+  YOUR_AGENT_API_KEY: ${YOUR_AGENT_API_KEY}
+```
+
+Then verify:
+
+```bash
+harnessctl list
+harnessctl doctor
+harnessctl run --agent <name> "Say hello"
+```
+
+</details>
 
 ## Configuration
 
