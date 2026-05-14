@@ -3,7 +3,7 @@ import { getContext, setContext, clearContext, contextFilePath } from "../lib/co
 import { syncMemory, clearMemory } from "../lib/memory.ts";
 import { c } from "../ui.ts";
 
-const USAGE = `harnessctl context — manage project context (CLAUDE.md / AGENTS.md / GEMINI.md)
+const USAGE = `harnessctl context — manage project context (CLAUDE.md / AGENTS.md / .deepagents/AGENTS.md / GEMINI.md)
 
 Usage:
   harnessctl context get
@@ -15,7 +15,8 @@ Usage:
 
 The canonical file lives at ~/.harnessctl/projects/<cwdHash>/context.md.
 Setting it also syncs a <!-- harnessctl:begin/end --> block into each agent's
-native memory file in the current directory (CLAUDE.md, AGENTS.md, GEMINI.md).
+native memory file in the current directory (CLAUDE.md, AGENTS.md,
+.deepagents/AGENTS.md, GEMINI.md).
 `;
 
 export function contextCommand(argv: string[]): number {

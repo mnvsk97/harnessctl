@@ -1,7 +1,7 @@
 # Agent Session Files Reference
 
 What files each coding agent creates on disk during shell (interactive) and headless sessions.
-Last updated: 2026-05-01.
+Last updated: 2026-05-14.
 
 ---
 
@@ -66,6 +66,23 @@ Last updated: 2026-05-01.
 
 ---
 
+## DeepAgents (`deepagents`)
+
+| File / Directory | Path Pattern | Format | Mode | Contents |
+|---|---|---|---|---|
+| Config | `~/.deepagents/config.toml` | TOML | Both | Model defaults, provider settings, profile overrides |
+| Global env | `~/.deepagents/.env` | dotenv | Both | Provider credentials and LangSmith tracing keys |
+| Global agent memory | `~/.deepagents/<agent_name>/AGENTS.md` | Markdown | Both | User-level memory loaded at session start |
+| Project memory | `<cwd>/.deepagents/AGENTS.md` | Markdown | Both | Project-specific instructions loaded from git project root |
+| Project memory directory | `<cwd>/.deepagents/` | Mixed | Both | Project-specific memory, skills, and subagents |
+| Sessions DB | `~/.deepagents/.state/sessions.db` | SQLite | Both | Native thread/session state used by the CLI |
+| Stored provider auth | `~/.deepagents/.state/auth.json` | JSON | Both | Provider API keys stored by DeepAgents' `/auth` flow |
+| Hooks | `~/.deepagents/hooks.json` | JSON | Both | DeepAgents lifecycle hooks |
+
+**Key session file:** `~/.deepagents/.state/sessions.db` — SQLite-backed native session state. harnessctl writes a pointer to this DB into handoff files when it exists and is non-empty.
+
+---
+
 ## Gemini (`gemini`)
 
 | File / Directory | Path Pattern | Format | Mode | Contents |
@@ -101,5 +118,6 @@ Last updated: 2026-05-01.
 | Claude | `~/.claude/projects/<hash>/<uuid>.jsonl` | JSONL | Session ID from stdout → find in project dirs |
 | Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | JSONL | Newest rollout file modified after run start |
 | OpenCode | `~/.local/share/opencode/opencode.db` | SQLite | Query sessions table by timestamp |
+| DeepAgents | `~/.deepagents/.state/sessions.db` | SQLite | `deepagents threads list --json` + native DB pointer |
 | Gemini | `~/.gemini/sessions/<dir>/<id>.jsonl` | JSONL | Newest session file modified after run start |
 | Cursor | `~/.cursor-agent/sessions/<ws>/<id>.jsonl` | JSONL | Newest session file modified after run start |

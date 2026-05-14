@@ -23,6 +23,7 @@ const interactiveBase: Record<string, { cmd: string; args: string[] }> = {
   opencode: { cmd: "opencode", args: [] },
   gemini:   { cmd: "gemini", args: [] },
   cursor:   { cmd: "agent", args: [] },
+  deepagents: { cmd: "deepagents", args: [] },
 };
 
 /** Launch an interactive shell for a single agent. Returns the exit code. */
@@ -153,9 +154,10 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
 
   const agentConfig = loadAgentConfig(agentName);
   const adapter = getAdapter(agentName, agentConfig);
+  const env = resolveEnv(agentConfig.env ?? {});
 
   // Pre-flight auth check
-  const auth = checkAuth(adapter);
+  const auth = checkAuth(adapter, env);
   if (!auth.ok) {
     console.error(`${c.red("✗")} ${agentName}: ${auth.message}`);
     console.error(c.dim(`  tip: run "harnessctl doctor" for diagnostics`));
@@ -184,7 +186,6 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
   }
 
   const args = buildShellArgs(agentName, agentConfig, opts.extraArgs);
-  const env = resolveEnv(agentConfig.env ?? {});
 
   header(c.bold("harnessctl shell"), [agentName, auth.message]);
   separator();
@@ -226,8 +227,9 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
   // Launch fallback agent shell
   const fallbackConfig = loadAgentConfig(fallbackName);
   const fallbackAdapter = getAdapter(fallbackName, fallbackConfig);
+  const fallbackEnv = resolveEnv(fallbackConfig.env ?? {});
 
-  const fallbackAuth = checkAuth(fallbackAdapter);
+  const fallbackAuth = checkAuth(fallbackAdapter, fallbackEnv);
   if (!fallbackAuth.ok) {
     console.error(`${c.red("✗")} ${fallbackName}: ${fallbackAuth.message}`);
     console.error(c.dim(`  tip: run "harnessctl doctor" for diagnostics`));
@@ -235,7 +237,6 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
   }
 
   const fallbackArgs = buildShellArgs(fallbackName, fallbackConfig, opts.extraArgs);
-  const fallbackEnv = resolveEnv(fallbackConfig.env ?? {});
 
   console.error(c.dim(`  handing off to ${fallbackName}...`));
   separator();
@@ -259,14 +260,14 @@ export async function shellCommand(opts: ShellOptions): Promise<number> {
       if (shouldChain) {
         const chainedConfig = loadAgentConfig(chainedName);
         const chainedAdapter = getAdapter(chainedName, chainedConfig);
-        const chainedAuth = checkAuth(chainedAdapter);
+        const chainedEnv = resolveEnv(chainedConfig.env ?? {});
+        const chainedAuth = checkAuth(chainedAdapter, chainedEnv);
         if (!chainedAuth.ok) {
           console.error(`${c.red("✗")} ${chainedName}: ${chainedAuth.message}`);
           return 1;
         }
 
         const chainedArgs = buildShellArgs(chainedName, chainedConfig, opts.extraArgs);
-        const chainedEnv = resolveEnv(chainedConfig.env ?? {});
 
         console.error(c.dim(`  handing off to ${chainedName}...`));
         separator();

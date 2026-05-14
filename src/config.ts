@@ -50,6 +50,11 @@ const DEFAULT_AGENTS: Record<string, AgentConfig> = {
     timeout: 300,
     extra_args: [],
   },
+  deepagents: {
+    env: {},
+    timeout: 300,
+    extra_args: [],
+  },
 };
 
 /**
@@ -139,6 +144,8 @@ export function saveConfig(config: GlobalConfig): void {
 }
 
 export function loadAgentConfig(agent: string): AgentConfig {
+  ensureInit();
+
   const path = join(AGENTS_DIR, `${agent}.yaml`);
   let userConfig: AgentConfig = {};
   if (existsSync(path)) {

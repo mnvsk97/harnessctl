@@ -35,7 +35,7 @@ mock.module("../config.ts", () => ({
   loadConfig: () => ({ default_agent: "codex" }),
   loadAgentConfig: (name: string) => agentConfigs[name] ?? {},
   resolveEnv: (env: Record<string, string>) => env,
-  isKnownAgent: (name: string) => ["claude", "codex", "opencode", "cursor"].includes(name),
+  isKnownAgent: (name: string) => ["claude", "codex", "opencode", "cursor", "deepagents"].includes(name),
   HARNESS_DIR: "/tmp/harnessctl-test",
   AGENTS_DIR: "/tmp/harnessctl-test/agents",
   SESSIONS_DIR: "/tmp/harnessctl-test/sessions",
@@ -75,7 +75,7 @@ mock.module("../adapters/registry.ts", () => ({
   }),
   checkAuth: (adapter: any) =>
     authResults[adapter.name] ?? { ok: true, message: "authenticated" },
-  listAdapterNames: () => ["claude", "codex", "opencode"],
+  listAdapterNames: () => ["claude", "codex", "opencode", "deepagents"],
 }));
 
 // Mock UI — capture output, control askConfirm responses
@@ -265,6 +265,23 @@ describe("shell fallback on auth failure", () => {
 });
 
 describe("shell -- extra args forwarding", () => {
+  test("deepagents shell launches the interactive CLI with model and extra args", async () => {
+    agentConfigs.deepagents = { model: "anthropic:claude-sonnet-4-6" };
+    nextExitCodes = [0];
+
+    const code = await shellCommand({ agent: "deepagents", extraArgs: ["--agent", "backend-dev"] });
+
+    expect(code).toBe(0);
+    expect(spawnLog).toHaveLength(1);
+    expect(spawnLog[0].cmd).toBe("deepagents");
+    expect(spawnLog[0].args).toEqual([
+      "--model",
+      "anthropic:claude-sonnet-4-6",
+      "--agent",
+      "backend-dev",
+    ]);
+  });
+
   test("extra args passed through to agent", async () => {
     agentConfigs.codex = {};
     nextExitCodes = [0];

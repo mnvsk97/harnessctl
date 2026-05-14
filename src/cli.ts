@@ -81,7 +81,7 @@ Examples:
   harnessctl run "fix the auth bug"
   harnessctl compare "fix the auth bug" --agents codex,claude --judge claude
   harnessctl handoff 1713364500000-claude --agent codex "add tests for that"
-  harnessctl run --agent codex --resume "add tests for that"
+  harnessctl run --agent codex "add tests for that" --resume
   harnessctl run --template code-review "src/auth.ts"
   harnessctl run --budget 2.00 "refactor the payment module"
   harnessctl context set "Go 1.22, postgres, follow existing patterns"

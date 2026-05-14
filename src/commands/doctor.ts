@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { loadAgentConfig, loadConfig, CONFIG_PATH } from "../config.ts";
+import { loadAgentConfig, loadConfig, CONFIG_PATH, resolveEnv } from "../config.ts";
 import { getAdapter, checkAuth } from "../adapters/registry.ts";
 import { readFileSync } from "node:fs";
 import { header, footer, separator, c } from "../ui.ts";
@@ -99,7 +99,7 @@ export function doctorCommand(argv: string[] = []): void {
 
     if (check.status === 0) {
       const version = check.stdout?.toString().trim().split("\n")[0] ?? "";
-      const auth = checkAuth(adapter);
+      const auth = checkAuth(adapter, resolveEnv(config.env ?? {}));
       const fallback = config.fallback ? ` ${c.dim("→")} ${config.fallback}` : "";
 
       if (auth.ok) {

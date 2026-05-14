@@ -101,9 +101,10 @@ async function invokeAgent(
   harnessSessionId: string,
 ): Promise<RunResult> {
   const adapter = getAdapter(agentName, agentConfig);
+  const env = resolveEnv(agentConfig.env ?? {});
 
   // Pre-flight auth check
-  const auth = checkAuth(adapter);
+  const auth = checkAuth(adapter, env);
   if (!auth.ok) {
     header(c.red("harnessctl"));
     console.error(`  ${c.red("✗")} ${agentName}: ${auth.message}`);
@@ -142,7 +143,6 @@ async function invokeAgent(
 
   const prompt = buildPrompt(opts.prompt, opts, cwd, transcriptBlock);
 
-  const env = resolveEnv(agentConfig.env ?? {});
   const intent: InvokeIntent = {
     prompt,
     model: agentConfig.model,
