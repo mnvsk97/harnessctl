@@ -144,7 +144,28 @@ harnessctl run --agent deepagents -- --agent backend-dev
 
 The adapter invokes `deepagents --stdin --auto-approve --shell-allow-list recommended --quiet --no-stream`. To pass DeepAgents-specific flags, put them after `--` or in `~/.harnessctl/agents/deepagents.yaml` under `extra_args`. Project context syncs to DeepAgents' native `.deepagents/AGENTS.md` file.
 
-Before running DeepAgents through harnessctl, configure provider credentials with DeepAgents' `/auth` flow, or set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_CLOUD_PROJECT`, or the matching `DEEPAGENTS_CLI_*` variant in your shell, project `.env`, `~/.deepagents/.env`, `~/.harnessctl/.env`, project `.harnessctl/.env`, or `~/.harnessctl/agents/deepagents.yaml` under `env`.
+Before running DeepAgents through harnessctl, configure provider credentials with DeepAgents' `/auth` flow, or set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_CLOUD_PROJECT`, a custom `api_key_env` from `~/.deepagents/config.toml`, or the matching `DEEPAGENTS_CLI_*` variant in your shell, project `.env`, `~/.deepagents/.env`, `~/.harnessctl/.env`, project `.harnessctl/.env`, or `~/.harnessctl/agents/deepagents.yaml` under `env`.
+
+OpenAI-compatible gateways can be configured directly in DeepAgents, then used by harnessctl without passing model flags every time:
+
+```toml
+# ~/.deepagents/config.toml
+[models]
+default = "openai:provider-account/model-name"
+
+[models.providers.openai]
+base_url = "https://gateway.example.com"
+api_key_env = "GATEWAY_API_KEY"
+models = ["provider-account/model-name"]
+
+[models.providers.openai.params]
+use_responses_api = false
+```
+
+```dotenv
+# ~/.deepagents/.env
+GATEWAY_API_KEY=...
+```
 
 ## Configuration
 
